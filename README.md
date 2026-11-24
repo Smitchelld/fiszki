@@ -1,4 +1,6 @@
-# StackPrep: fiszki przed rozmową
+# DryRun: fiszki przed rozmową
+
+> **Wersja demo**, a DryRun to na razie nazwa robocza. Projekt powstał we współpracy z [Claude](https://claude.ai) (Anthropic): z pomocą AI powstały strona i pierwsza baza pytań.
 
 Pytania rekrutacyjne na **Junior Python Web Developer** i **Junior DevOps**, przewijane na telefonie jak rolki: jedna karta na ekran.
 
