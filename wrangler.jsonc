@@ -1,0 +1,8 @@
+// Konfiguracja Cloudflare Workers: strona statyczna z folderu docs/, bez kodu serwera.
+{
+  "name": "fiszki",
+  "compatibility_date": "2026-11-01",
+  "assets": {
+    "directory": "docs"
+  }
+}

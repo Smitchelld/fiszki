@@ -4,7 +4,7 @@
 
 Pytania rekrutacyjne na **Junior Python Web Developer** i **Junior DevOps**, przewijane na telefonie jak rolki: jedna karta na ekran.
 
-**Strona:** https://smitchelld.github.io/fiszki/
+**Strona:** https://fiszki.smitchelld.dev
 
 - dwa typy kart: fiszka (tapnij, żeby odsłonić odpowiedź, potem „Wiedziałem” / „Nie wiedziałem”) i pytanie wyboru (losowa kolejność odpowiedzi, wyjaśnienie po kliknięciu);
 - pytania, na które odpowiedziałeś źle, wracają na początek następnej sesji;
