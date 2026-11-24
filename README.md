@@ -1,4 +1,4 @@
-# Fiszki przed rozmową
+# StackPrep: fiszki przed rozmową
 
 Pytania rekrutacyjne na **Junior Python Web Developer** i **Junior DevOps**, przewijane na telefonie jak rolki: jedna karta na ekran.
 
