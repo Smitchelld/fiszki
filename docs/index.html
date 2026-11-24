@@ -1,0 +1,921 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fiszki przed rozmową</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet">
+<style>
+/* VOICE: jak portfolio smitchelld.github.io, tylko na telefon
+   IDEA: rolki, jedna karta = jeden ekran; odpowiedź w okienku terminala
+   PICTURE: rozmyty terminal, który odsłania się po tapnięciu
+   COLOUR/TYPE: #04080f, niebieski #3b82f6 + indygo, zielony = dobrze; DM Serif Display + Space Mono
+   LAYOUT: stały pasek u góry (licznik, kategorie), karty przewijane w pionie ze snapem */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; min-width: 0; }
+:root {
+  color-scheme: dark;
+  --bg: #04080f; --fg: #dde4f0; --fg-dim: #8a96aa;
+  --accent: #3b82f6; --accent2: #818cf8; --green: #34d399; --red: #f87171;
+  --card: rgba(255,255,255,0.03); --border: rgba(255,255,255,0.07); --border2: rgba(255,255,255,0.12);
+  --top: 116px;
+}
+[hidden] { display: none !important; }
+html, body { height: 100%; }
+body { background: var(--bg); color: var(--fg); font-family: 'Space Mono', monospace; overflow: hidden; -webkit-tap-highlight-color: transparent; }
+
+#bg { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
+body::before { content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 1; opacity: .4;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+  background-size: 200px; }
+body::after { content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 2;
+  background: repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,.025) 3px,rgba(0,0,0,.025) 4px); }
+
+/* ─── TOP ─── */
+.top { position: fixed; top: 0; left: 0; right: 0; z-index: 20; padding: 14px max(5vw,18px) 14px;
+  background: linear-gradient(to bottom, rgba(4,8,15,.96) 70%, rgba(4,8,15,0)); }
+.top-in { max-width: 560px; margin: 0 auto; }
+.row1 { display: flex; align-items: center; gap: 14px; }
+.logo { font-size: .8rem; color: var(--accent); letter-spacing: .08em; text-decoration: none; }
+.logo span { color: var(--fg-dim); }
+.count { margin-left: auto; font-size: .72rem; color: var(--fg-dim); letter-spacing: .1em; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.icon-btn { width: 40px; height: 40px; flex: none; border-radius: 50%; border: 1px solid var(--border2); background: var(--card);
+  color: var(--fg); font: 400 1.25rem/1 'Space Mono', monospace; cursor: pointer; transition: border-color .2s, color .2s; }
+.icon-btn:hover { border-color: var(--accent); color: var(--accent); }
+.bar { height: 2px; background: var(--border); margin: 12px 0; border-radius: 2px; overflow: hidden; }
+.bar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--accent), var(--accent2)); transition: width .3s; }
+.chips { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; }
+.chips::-webkit-scrollbar { display: none; }
+.chip { flex: none; min-height: 34px; padding: 6px 14px; border-radius: 100px; border: 1px solid var(--border); background: transparent;
+  color: var(--fg-dim); font: 400 .72rem 'Space Mono', monospace; letter-spacing: .04em; cursor: pointer; transition: border-color .2s, color .2s; }
+.chip.on { border-color: var(--accent); color: var(--fg); background: rgba(59,130,246,.12); }
+
+/* ─── FEED ─── */
+#feed { position: fixed; inset: 0; z-index: 10; overflow-y: auto; scroll-snap-type: y mandatory; overscroll-behavior: contain; scrollbar-width: none; }
+#feed::-webkit-scrollbar { display: none; }
+.card { position: relative; height: 100vh; height: 100dvh; overflow: hidden; scroll-snap-align: start; scroll-snap-stop: always;
+  display: flex; padding: calc(var(--top) + 6px) max(5vw,18px) 34px; }
+.inner { width: 100%; max-width: 520px; margin: auto; display: flex; flex-direction: column; gap: 20px; }
+
+.eyebrow { display: flex; align-items: center; gap: 12px; font-size: .72rem; color: var(--green); letter-spacing: .2em; text-transform: uppercase; }
+.eyebrow::before { content: ""; width: 24px; height: 1px; background: var(--green); }
+.badge { font-size: .66rem; letter-spacing: .1em; color: var(--accent2); border: 1px solid rgba(129,140,248,.4); padding: 2px 9px; border-radius: 100px; }
+
+.q { font-family: 'DM Serif Display', serif; font-weight: 400; font-size: clamp(1.9rem, 7.6vw, 2.7rem); line-height: 1.08; letter-spacing: -.01em; text-wrap: balance; }
+.q.long { font-size: clamp(1.5rem, 6vw, 2.1rem); }
+.q em { font-style: italic; background: linear-gradient(120deg, var(--accent), var(--accent2)); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+code { font-family: 'Space Mono', monospace; font-size: .92em; background: rgba(59,130,246,.13); color: #a9c8ff; padding: .08em .35em; border-radius: 4px; overflow-wrap: anywhere; }
+.q code { font-size: .6em; vertical-align: .12em; white-space: nowrap; }
+
+/* terminal, jak na portfolio */
+.term { position: relative; background: rgba(0,0,0,.62); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; backdrop-filter: blur(10px); }
+.term-bar { display: flex; align-items: center; gap: 7px; padding: 11px 16px; border-bottom: 1px solid var(--border); background: rgba(255,255,255,.03); }
+.d { width: 11px; height: 11px; border-radius: 50%; } .d.r { background: #ff5f57; } .d.y { background: #febc2e; } .d.g { background: #28c840; }
+.term-bar span { margin-left: 8px; font-size: .68rem; color: var(--fg-dim); }
+.term-body { padding: 18px 20px; min-height: 128px; font-size: .86rem; line-height: 1.85; color: #a0f0a0; }
+.term-body .pr { color: var(--accent); }
+
+.answer .term-body { filter: blur(7px); opacity: .35; user-select: none; transition: filter .35s, opacity .35s; }
+.revealed .answer .term-body { filter: none; opacity: 1; user-select: text; }
+.reveal { position: absolute; left: 50%; top: calc(50% + 20px); transform: translate(-50%,-50%); white-space: nowrap; }
+.revealed .reveal { opacity: 0; pointer-events: none; }
+
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; padding: 12px 22px; border-radius: 3px; border: 0;
+  font: 400 .8rem 'Space Mono', monospace; letter-spacing: .05em; cursor: pointer; transition: transform .2s, box-shadow .2s, border-color .2s, color .2s, opacity .2s; }
+.btn-fill { background: var(--accent); color: var(--bg); font-weight: 700; }
+.btn-fill:hover { box-shadow: 0 10px 40px rgba(59,130,246,.4); }
+.btn-outline { background: transparent; border: 1px solid var(--border2); color: var(--fg-dim); }
+.btn-outline:hover { border-color: rgba(255,255,255,.25); color: var(--fg); }
+.btn:focus-visible, .chip:focus-visible, .opt:focus-visible, .icon-btn:focus-visible, .link:focus-visible { outline: 2px solid var(--accent2); outline-offset: 2px; }
+
+.grade { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; visibility: hidden; opacity: 0; transform: translateY(8px); transition: opacity .3s, transform .3s, visibility .3s; }
+.revealed .grade { visibility: visible; opacity: 1; transform: none; }
+.done .grade .btn:not(.chosen) { opacity: .3; }
+.grade .chosen.btn-outline { border-color: var(--red); color: var(--red); }
+
+/* wybór */
+.opts { display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+.opt { display: flex; align-items: center; gap: 14px; min-height: 52px; padding: 12px 16px; text-align: left; border: 0; border-bottom: 1px solid var(--border);
+  background: var(--card); color: var(--fg); font: 400 .86rem/1.5 'Space Mono', monospace; cursor: pointer; transition: background .2s, color .2s, opacity .2s; }
+.opt:last-child { border-bottom: 0; }
+.opt:hover { background: rgba(255,255,255,.055); }
+.key { flex: none; width: 28px; height: 28px; display: grid; place-items: center; border: 1px solid var(--border2); border-radius: 50%; font-size: .72rem; color: var(--accent); }
+.done .opt { cursor: default; }
+.opt.correct { background: rgba(52,211,153,.1); } .opt.correct .key { background: var(--green); border-color: var(--green); color: var(--bg); }
+.opt.wrong { background: rgba(248,113,113,.1); } .opt.wrong .key { background: var(--red); border-color: var(--red); color: var(--bg); }
+.opt.dim { opacity: .45; }
+.expl { padding: 14px 18px; border: 1px solid var(--border); border-radius: 10px; background: rgba(0,0,0,.5); font-size: .84rem; line-height: 1.8; color: var(--fg-dim);
+  visibility: hidden; opacity: 0; transition: opacity .3s, visibility .3s; }
+.done .expl { visibility: visible; opacity: 1; }
+.verdict { display: block; font-weight: 700; margin-bottom: 4px; }
+.verdict.ok { color: var(--green); } .verdict.no { color: var(--red); }
+
+.scroll-hint { position: absolute; bottom: 22px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 8px;
+  font-size: .66rem; color: var(--fg-dim); letter-spacing: .18em; text-transform: uppercase; pointer-events: none; }
+.scroll-hint::after { content: ""; width: 1px; height: 40px; background: linear-gradient(to bottom, var(--fg-dim), transparent); animation: drop 1.8s ease-in-out infinite; }
+@keyframes drop { 0%,100% { transform: translateY(0); opacity: .5 } 50% { transform: translateY(8px); opacity: 1 } }
+
+/* koniec sesji */
+.stats { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.stat { background: var(--card); padding: 22px 24px; }
+.stat-val { font-family: 'DM Serif Display', serif; font-size: 2.6rem; line-height: 1; }
+.stat-val.ok { color: var(--green); } .stat-val.no { color: var(--red); }
+.stat-label { margin-top: 8px; font-size: .68rem; color: var(--fg-dim); letter-spacing: .1em; text-transform: uppercase; }
+.muted { font-size: .84rem; line-height: 1.9; color: var(--fg-dim); }
+.end .btn { align-self: flex-start; }
+
+/* ─── FORMULARZ ─── */
+.backdrop { position: fixed; inset: 0; z-index: 40; background: rgba(0,0,0,.55); backdrop-filter: blur(4px); }
+.sheet { position: fixed; left: 0; right: 0; bottom: 0; z-index: 50; max-width: 560px; max-height: 90dvh; margin: 0 auto; overflow-y: auto;
+  display: flex; flex-direction: column; gap: 14px; padding: 10px 22px 24px; background: #0a111d; border: 1px solid var(--border2); border-bottom: 0; border-radius: 16px 16px 0 0; scrollbar-width: thin; scrollbar-color: var(--border2) transparent; }
+.sheet > * { flex-shrink: 0; }
+.grab { width: 40px; height: 4px; margin: 0 auto 4px; border-radius: 4px; background: var(--border2); }
+.sheet h3 { font-family: 'DM Serif Display', serif; font-weight: 400; font-size: 1.9rem; }
+.sheet h3 em { font-style: italic; color: var(--accent2); }
+.f { display: flex; flex-direction: column; gap: 6px; font-size: .7rem; color: var(--fg-dim); letter-spacing: .1em; text-transform: uppercase; }
+.lab { display: flex; justify-content: space-between; gap: 10px; }
+.cnt { letter-spacing: 0; font-variant-numeric: tabular-nums; }
+.cnt.over { color: var(--red); }
+.sheet input[type=text], .sheet textarea, .sheet select { width: 100%; padding: 10px 12px; border: 1px solid var(--border2); border-radius: 6px; background: rgba(0,0,0,.45);
+  color: var(--fg); font: 400 16px/1.5 'Space Mono', monospace; letter-spacing: 0; text-transform: none; resize: vertical; }
+.sheet input[type=text]:focus, .sheet textarea:focus, .sheet select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(59,130,246,.2); }
+.sheet option { background: #0a111d; }
+.seg { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--border2); border-radius: 6px; overflow: hidden; }
+.seg label { position: relative; }
+.seg input { position: absolute; opacity: 0; pointer-events: none; }
+.seg span { display: grid; place-items: center; min-height: 44px; font-size: .8rem; color: var(--fg-dim); cursor: pointer; }
+.seg input:checked + span { background: rgba(59,130,246,.15); color: var(--fg); }
+.seg input:focus-visible + span { outline: 2px solid var(--accent2); outline-offset: -2px; }
+.optrow { display: flex; align-items: center; gap: 10px; }
+.optrow input[type=radio] { flex: none; width: 22px; height: 22px; accent-color: var(--green); }
+.err { min-height: 1.2em; font-size: .78rem; color: var(--red); }
+.row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.own { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 6px 12px; padding-top: 10px; border-top: 1px solid var(--border); font-size: .74rem; color: var(--fg-dim); }
+.link { min-height: 44px; background: none; border: 0; color: var(--accent); font: inherit; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.export { min-height: 120px; font-size: 13px !important; }
+
+#toast { position: fixed; left: 50%; bottom: 28px; z-index: 60; transform: translate(-50%, 20px); opacity: 0; pointer-events: none; white-space: nowrap;
+  padding: 10px 18px; border: 1px solid var(--border2); border-radius: 100px; background: rgba(10,17,29,.96); font-size: .76rem; transition: opacity .25s, transform .25s; }
+#toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+@media (max-height: 700px) { :root { --top: 108px; } .inner { gap: 14px; } .term-body { min-height: 100px; padding: 14px 16px; } .scroll-hint { display: none; } }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; animation: none !important; } }
+</style>
+</head>
+<body>
+
+<canvas id="bg"></canvas>
+
+<header class="top">
+  <div class="top-in">
+    <div class="row1">
+      <a class="logo" href="https://smitchelld.github.io">SK.dev<span>/fiszki</span></a>
+      <span class="count" id="count">0 / 0</span>
+      <button class="icon-btn" id="addBtn" type="button" aria-label="Dodaj pytanie">+</button>
+    </div>
+    <div class="bar"><i id="barFill"></i></div>
+    <nav class="chips" id="chips" aria-label="Kategorie"></nav>
+  </div>
+</header>
+
+<main id="feed" aria-live="polite"></main>
+
+<div class="backdrop" id="backdrop" hidden></div>
+<form class="sheet" id="sheet" hidden novalidate>
+  <div class="grab"></div>
+  <h3>Nowe <em>pytanie.</em></h3>
+  <label class="f">Kategoria <select id="fKat"></select></label>
+  <div class="seg" role="radiogroup" aria-label="Typ pytania">
+    <label><input type="radio" name="typ" value="fiszka" checked><span>Fiszka</span></label>
+    <label><input type="radio" name="typ" value="wybor"><span>Wybór</span></label>
+  </div>
+  <label class="f"><span class="lab">Pytanie <span class="cnt" data-for="fPyt"></span></span>
+    <textarea id="fPyt" rows="2" maxlength="160"></textarea></label>
+  <div id="polaFiszka">
+    <label class="f"><span class="lab">Odpowiedź <span class="cnt" data-for="fOdp"></span></span>
+      <textarea id="fOdp" rows="4" maxlength="220"></textarea></label>
+  </div>
+  <div id="polaWybor" class="f" hidden>
+    <span class="lab">Odpowiedzi <span>kropka = poprawna</span></span>
+    <div class="optrow"><input type="radio" name="pop" value="0" checked aria-label="A poprawna"><input type="text" class="fOpc" placeholder="A" maxlength="80"></div>
+    <div class="optrow"><input type="radio" name="pop" value="1" aria-label="B poprawna"><input type="text" class="fOpc" placeholder="B" maxlength="80"></div>
+    <div class="optrow"><input type="radio" name="pop" value="2" aria-label="C poprawna"><input type="text" class="fOpc" placeholder="C (opcjonalnie)" maxlength="80"></div>
+    <div class="optrow"><input type="radio" name="pop" value="3" aria-label="D poprawna"><input type="text" class="fOpc" placeholder="D (opcjonalnie)" maxlength="80"></div>
+    <label class="f"><span class="lab">Wyjaśnienie <span class="cnt" data-for="fWyj"></span></span>
+      <textarea id="fWyj" rows="2" maxlength="220"></textarea></label>
+  </div>
+  <p class="err" id="fErr"></p>
+  <div class="row">
+    <button type="button" class="btn btn-outline" id="fAnuluj">Anuluj</button>
+    <button type="submit" class="btn btn-fill">Dodaj</button>
+  </div>
+  <div class="own">
+    <span id="fIle">Twoje pytania: 0</span>
+    <button type="button" class="link" id="fKopiuj">Kopiuj jako JSONL</button>
+  </div>
+  <textarea id="fEksport" class="export" readonly hidden aria-label="Twoje pytania w formacie JSONL"></textarea>
+</form>
+
+<div id="toast" role="status"></div>
+
+<!-- Zapas na wypadek otwarcia pliku bez serwera (file:// blokuje fetch). Normalnie strona czyta questions.jsonl. -->
+<script type="text/plain" id="przyklad">
+{"id": "python-001", "kategoria": "python", "typ": "fiszka", "pytanie": "Czym różni się lista od krotki?", "odpowiedz": "Lista jest mutowalna, krotka nie. Dlatego krotka (o hashowalnych elementach) może być kluczem w słowniku albo elementem zbioru."}
+{"id": "python-002", "kategoria": "python", "typ": "wybor", "pytanie": "Co wypisze `print([1, 2, 3][-1])`?", "opcje": ["1", "3", "IndexError"], "poprawna": 1, "wyjasnienie": "Ujemny indeks liczy od końca: -1 to ostatni element, -2 przedostatni."}
+{"id": "python-003", "kategoria": "python", "typ": "wybor", "pytanie": "Co zwraca funkcja, która nie ma `return`?", "opcje": ["0", "None", "Pusty string", "Rzuca wyjątek"], "poprawna": 1, "wyjasnienie": "Każda funkcja w Pythonie coś zwraca. Bez return jest to None."}
+{"id": "python-101", "kategoria": "python", "typ": "fiszka", "pytanie": "Czym różnią się typy mutable i immutable? Podaj przykłady.", "odpowiedz": "Mutable zmieniasz w miejscu (`list`, `dict`, `set`). Immutable nie (`int`, `str`, `tuple`, `frozenset`) – „zmiana” tworzy nowy obiekt."}
+{"id": "python-102", "kategoria": "python", "typ": "wybor", "pytanie": "Co zwróci `f(2)` po wcześniejszym `f(1)`, dla `def f(x, l=[]): l.append(x); return l`?", "opcje": ["`[1, 2]`", "`[2]`", "`[1]`", "`TypeError`"], "poprawna": 0, "wyjasnienie": "Domyślna lista tworzy się raz, przy definicji funkcji, i jest współdzielona. Bezpieczny wzorzec: `l=None` i `if l is None: l = []`."}
+{"id": "python-103", "kategoria": "python", "typ": "wybor", "pytanie": "Czym jest `**kwargs` w definicji funkcji?", "opcje": ["krotką dodatkowych argumentów pozycyjnych", "słownikiem nazwanych argumentów, które nie pasują do parametrów", "potęgowaniem argumentów", "listą wszystkich argumentów funkcji"], "poprawna": 1, "wyjasnienie": "`*args` zbiera nadmiarowe argumenty pozycyjne w krotkę, a `**kwargs` nadmiarowe nazwane w słownik."}
+{"id": "python-104", "kategoria": "python", "typ": "wybor", "pytanie": "Czym różni się `is` od `==`?", "opcje": ["`is` porównuje wartości, `==` tożsamość", "`is` działa tylko dla `None`", "`is` sprawdza tożsamość obiektu, `==` porównuje wartości", "nie ma różnicy, to aliasy"], "poprawna": 2, "wyjasnienie": "`[1] == [1]` to `True`, ale `[1] is [1]` to `False` (dwa osobne obiekty). `is` używamy głównie z `None`."}
+{"id": "python-105", "kategoria": "python", "typ": "fiszka", "pytanie": "Jakie wartości w Pythonie są „falsy”?", "odpowiedz": "`False`, `None`, `0`, `0.0`, puste `str`, `list`, `tuple`, `dict`, `set`. Własne obiekty: gdy `__bool__` daje `False` lub `__len__` daje 0."}
+{"id": "python-106", "kategoria": "python", "typ": "wybor", "pytanie": "Co robi `copy.copy(x)` dla listy zagnieżdżonych list?", "opcje": ["kopiuje rekurencyjnie wszystkie poziomy", "zwraca ten sam obiekt bez kopiowania", "kopiuje tylko pierwszy element", "kopiuje zewnętrzną listę, a wewnętrzne listy pozostają wspólne"], "poprawna": 3, "wyjasnienie": "To płytka kopia (shallow). Pełną, niezależną kopię robi `copy.deepcopy(x)`."}
+{"id": "python-107", "kategoria": "python", "typ": "fiszka", "pytanie": "Co to jest zasada LEGB?", "odpowiedz": "Kolejność szukania nazw zmiennych: Local, Enclosing (funkcje zewnętrzne), Global (moduł), Built-in (wbudowane, np. `len`)."}
+{"id": "python-108", "kategoria": "python", "typ": "wybor", "pytanie": "Do czego służy słowo kluczowe `nonlocal`?", "opcje": ["do przypisania zmiennej z funkcji zewnętrznej w funkcji zagnieżdżonej", "do tworzenia zmiennej globalnej", "do definiowania stałej", "do importu modułu spoza pakietu"], "poprawna": 0, "wyjasnienie": "Bez `nonlocal` przypisanie w funkcji zagnieżdżonej tworzy nową zmienną lokalną. `global` działa analogicznie dla modułu."}
+{"id": "python-109", "kategoria": "python", "typ": "fiszka", "pytanie": "Czym jest domknięcie (closure)?", "odpowiedz": "Funkcja zagnieżdżona, która zapamiętuje zmienne z funkcji zewnętrznej, nawet gdy ta już zakończyła działanie."}
+{"id": "python-110", "kategoria": "python", "typ": "fiszka", "pytanie": "Czym jest dekorator i co robi `@dec` nad funkcją `f`?", "odpowiedz": "Dekorator to funkcja biorąca funkcję i zwracająca nową. `@dec` nad `def f` to to samo co `f = dec(f)`. Warto użyć `functools.wraps`."}
+{"id": "python-111", "kategoria": "python", "typ": "wybor", "pytanie": "Co gwarantuje `with open('a.txt') as f:`?", "opcje": ["wczytanie całego pliku do pamięci", "zamknięcie pliku po wyjściu z bloku, także gdy poleci wyjątek", "otwarcie pliku w trybie zapisu", "blokadę pliku dla innych procesów"], "poprawna": 1, "wyjasnienie": "Context manager wywołuje `__exit__` zawsze, więc zasoby są zwalniane. Własny napiszesz przez `__enter__`/`__exit__` lub `contextlib`."}
+{"id": "python-112", "kategoria": "python", "typ": "fiszka", "pytanie": "Kiedy wykonują się bloki `else` i `finally` w `try/except`?", "odpowiedz": "`else` – gdy w `try` nie było wyjątku. `finally` – zawsze, na końcu (nawet po `return` lub wyjątku), np. do sprzątania zasobów."}
+{"id": "python-113", "kategoria": "python", "typ": "fiszka", "pytanie": "Jak zdefiniować własny wyjątek i go rzucić?", "odpowiedz": "Dziedziczymy po `Exception`: `class MyError(Exception): pass`. Rzucamy przez `raise MyError(\"opis\")`, łapiemy w `except MyError`."}
+{"id": "python-114", "kategoria": "python", "typ": "wybor", "pytanie": "Dlaczego gołe `except:` jest złą praktyką?", "opcje": ["jest błędem składni", "wyłącza `finally`", "łapie też `KeyboardInterrupt` i `SystemExit` oraz ukrywa błędy", "spowalnia program kilkukrotnie"], "poprawna": 2, "wyjasnienie": "Lepiej łapać konkretne wyjątki, np. `except ValueError`. Ewentualnie `except Exception`, ale z logowaniem."}
+{"id": "python-115", "kategoria": "python", "typ": "fiszka", "pytanie": "Czym różni się atrybut klasy od atrybutu instancji?", "odpowiedz": "Atrybut klasy jest w ciele klasy i wspólny dla wszystkich obiektów. Atrybut instancji ustawiasz przez `self.x` (zwykle w `__init__`), osobny dla każdego obiektu."}
+{"id": "python-116", "kategoria": "python", "typ": "wybor", "pytanie": "Co jest pierwszym argumentem metody z `@classmethod`?", "opcje": ["instancja `self`", "nic, nie przyjmuje argumentów", "moduł, w którym zdefiniowano klasę", "klasa, zwyczajowo nazwana `cls`"], "poprawna": 3, "wyjasnienie": "`@staticmethod` nie dostaje ani `self`, ani `cls`. `@classmethod` często służy jako alternatywny konstruktor."}
+{"id": "python-117", "kategoria": "python", "typ": "fiszka", "pytanie": "Do czego służy `@property`?", "odpowiedz": "Pozwala odczytywać metodę jak atrybut (`obj.x` bez nawiasów). Z `@x.setter` dodasz walidację przy zapisie bez zmiany interfejsu klasy."}
+{"id": "python-118", "kategoria": "python", "typ": "wybor", "pytanie": "Do czego głównie służy metoda `__repr__`?", "opcje": ["do jednoznacznej reprezentacji obiektu dla programisty (debugowanie)", "do porównywania obiektów", "do tworzenia kopii obiektu", "do ładnego tekstu dla użytkownika końcowego"], "poprawna": 0, "wyjasnienie": "`__str__` jest dla czytelnego tekstu użytkownika. Gdy brak `__str__`, `print` użyje `__repr__`."}
+{"id": "python-119", "kategoria": "python", "typ": "fiszka", "pytanie": "Co się stanie z hashowaniem, gdy w klasie nadpiszesz `__eq__`?", "odpowiedz": "Python ustawia `__hash__` na `None`, więc obiekty przestają być hashowalne (nie wejdą do `set` ani jako klucz `dict`), dopóki nie zdefiniujesz `__hash__`."}
+{"id": "python-120", "kategoria": "python", "typ": "fiszka", "pytanie": "Czym jest MRO i co robi `super()`?", "odpowiedz": "MRO to kolejność szukania metod w dziedziczeniu (algorytm C3), widać ją w `Klasa.__mro__`. `super()` wywołuje metodę następnej klasy wg MRO."}
+{"id": "python-121", "kategoria": "python", "typ": "wybor", "pytanie": "Co automatycznie generuje dekorator `@dataclass`?", "opcje": ["tylko słownik `__dict__` z polami", "`__init__`, `__repr__` i `__eq__` na podstawie zadeklarowanych pól", "walidację typów w czasie działania", "zapis obiektu do bazy danych"], "poprawna": 1, "wyjasnienie": "To skrót, by nie pisać boilerplate. Nie wymusza typów; adnotacje służą do zdefiniowania pól."}
+{"id": "python-122", "kategoria": "python", "typ": "fiszka", "pytanie": "Czy type hints są sprawdzane podczas działania programu?", "odpowiedz": "Nie, Python ich nie wymusza w runtime. Wykorzystują je narzędzia jak `mypy`, a także IDE do podpowiedzi i wykrywania błędów."}
+{"id": "python-123", "kategoria": "python", "typ": "fiszka", "pytanie": "Czym jest GIL i co oznacza dla wątków?", "odpowiedz": "Global Interpreter Lock w CPython: tylko jeden wątek wykonuje bytecode naraz. Wątki nie przyspieszą zadań CPU-bound, ale pomagają przy I/O."}
+{"id": "python-124", "kategoria": "python", "typ": "wybor", "pytanie": "Co wybrać, by przyspieszyć zadanie mocno obciążające CPU?", "opcje": ["`threading`, bo wątki działają równolegle", "`asyncio`, bo jest nieblokujące", "`multiprocessing`, bo osobne procesy mają własny GIL", "samą większą liczbę `import`ów"], "poprawna": 2, "wyjasnienie": "Procesy omijają ograniczenie GIL. `threading` i `asyncio` pomagają głównie przy operacjach I/O (sieć, dysk)."}
+{"id": "python-125", "kategoria": "python", "typ": "wybor", "pytanie": "Do czego `asyncio` pasuje najlepiej?", "opcje": ["do ciężkich obliczeń matematycznych", "do omijania GIL w pętlach liczących", "do uruchamiania wielu procesów", "do wielu operacji I/O (np. zapytań sieciowych) w jednym wątku"], "poprawna": 3, "wyjasnienie": "Korutiny (`async def`/`await`) oddają sterowanie podczas oczekiwania na I/O, więc jeden wątek obsługuje wiele zadań."}
+{"id": "python-126", "kategoria": "python", "typ": "fiszka", "pytanie": "Jak utworzyć środowisko wirtualne i zapisać zależności projektu?", "odpowiedz": "`python -m venv .venv` tworzy środowisko. `pip freeze > requirements.txt` zapisuje paczki, a `pip install -r requirements.txt` je odtwarza."}
+{"id": "python-127", "kategoria": "python", "typ": "fiszka", "pytanie": "Po co jest `if __name__ == \"__main__\":` w pliku?", "odpowiedz": "Blok uruchomi się tylko przy bezpośrednim starcie pliku (`python plik.py`), a nie przy `import` tego pliku jako modułu."}
+{"id": "python-128", "kategoria": "python", "typ": "wybor", "pytanie": "Co zwróci `f\"{3.14159:.2f}\"`?", "opcje": ["`'3.14'`", "`'3.1'`", "`'3.14159'`", "`'.2f'`"], "poprawna": 0, "wyjasnienie": "Po dwukropku jest specyfikacja formatu: `.2f` to liczba zmiennoprzecinkowa z 2 miejscami po przecinku (z zaokrągleniem)."}
+{"id": "python-129", "kategoria": "python", "typ": "fiszka", "pytanie": "Jak działa slicing `l[start:stop:step]`?", "odpowiedz": "Zwraca elementy od `start` do `stop` (bez `stop`) co `step`. `l[1:3]` to elementy 1 i 2, a `l[::-1]` odwraca listę."}
+{"id": "python-130", "kategoria": "python", "typ": "wybor", "pytanie": "Co robi `sorted(words, key=len)`?", "opcje": ["sortuje listę `words` w miejscu", "zwraca nową listę posortowaną wg długości słów", "sortuje alfabetycznie", "zwraca `None`"], "poprawna": 1, "wyjasnienie": "`key` to funkcja wyliczająca klucz sortowania, np. `len` lub `lambda x: x[1]`. `list.sort()` sortuje w miejscu."}
+{"id": "python-131", "kategoria": "python", "typ": "fiszka", "pytanie": "Do czego służy `dict.get(k, default)`?", "odpowiedz": "Zwraca wartość dla klucza `k` albo `default` (domyślnie `None`), gdy klucza brak, bez rzucania `KeyError` jak przy `d[k]`."}
+{"id": "python-132", "kategoria": "python", "typ": "wybor", "pytanie": "Co robi `Counter` z modułu `collections`?", "opcje": ["tworzy licznik uruchomień programu", "sortuje słownik po kluczach", "zlicza wystąpienia elementów, np. `Counter('aab')` daje a=2, b=1", "zwraca słownik z domyślną wartością 0"], "poprawna": 2, "wyjasnienie": "`Counter` to podklasa `dict`; ma m.in. `most_common()`. Domyślne wartości dla brakujących kluczy daje `defaultdict`."}
+{"id": "python-133", "kategoria": "python", "typ": "fiszka", "pytanie": "Czym jest list comprehension? Podaj przykład.", "odpowiedz": "Zwięzły zapis tworzący listę z iterowalnego: `[x*x for x in range(5) if x % 2 == 0]` da `[0, 4, 16]`. Są też dict/set comprehension."}
+{"id": "python-134", "kategoria": "python", "typ": "fiszka", "pytanie": "Czym jest generator i co robi `yield`?", "odpowiedz": "Funkcja z `yield` zwraca generator – leniwy iterator, który produkuje wartości na żądanie i zapamiętuje stan. Oszczędza pamięć przy dużych danych."}
+{"id": "python-135", "kategoria": "python", "typ": "wybor", "pytanie": "Jaka jest średnia złożoność sprawdzenia `x in s` dla `set`?", "opcje": ["`O(n)`", "`O(log n)`", "`O(n log n)`", "`O(1)`"], "poprawna": 3, "wyjasnienie": "Zbiór używa tablicy haszującej. Dla `list` to samo sprawdzenie to `O(n)`, więc do częstych sprawdzeń lepszy `set`."}
+{"id": "python-136", "kategoria": "python", "typ": "fiszka", "pytanie": "Jak wygląda podstawowy test w `pytest`?", "odpowiedz": "Funkcja `test_*` w pliku `test_*.py` ze zwykłym `assert`, np. `assert add(1,2) == 3`. Uruchamiasz komendą `pytest`. Dane przygotowują fixtures."}
+{"id": "python-201", "kategoria": "python", "typ": "fiszka", "pytanie": "Jakie ograniczenia ma `lambda` w porównaniu z `def`?", "odpowiedz": "Tylko jedno wyrażenie: bez instrukcji (`return`, przypisania, `try`), bez docstringa, w tracebacku jest `<lambda>`. Złożoną logikę pisz przez `def`."}
+{"id": "python-202", "kategoria": "python", "typ": "wybor", "pytanie": "Które nazewnictwo jest zgodne z PEP 8?", "opcje": ["funkcja `get_user`, klasa `UserAccount`, stała `MAX_SIZE`", "funkcja `GetUser`, klasa `user_account`, stała `maxSize`", "funkcja `getUser`, klasa `userAccount`, stała `max_size`", "funkcja `get_user`, klasa `user_account`, stała `MaxSize`"], "poprawna": 0, "wyjasnienie": "PEP 8: funkcje i zmienne `snake_case`, klasy `CamelCase`, stałe `UPPER_CASE`. Wcięcie to 4 spacje, linia do ok. 79 znaków."}
+{"id": "python-203", "kategoria": "python", "typ": "wybor", "pytanie": "Co zwróci `list(zip([1, 2, 3], 'ab'))`?", "opcje": ["`[(1, 'a'), (2, 'b'), (3, None)]`", "`[(1, 'a'), (2, 'b')]`", "`[(1, 'a'), (2, 'b'), (3, 'b')]`", "`ValueError` (różne długości)"], "poprawna": 1, "wyjasnienie": "`zip` zatrzymuje się na najkrótszym iterowalnym obiekcie. Do dopełniania służy `itertools.zip_longest`."}
+{"id": "python-204", "kategoria": "python", "typ": "fiszka", "pytanie": "Do czego służy `defaultdict(list)` i czym różni się od zwykłego `dict`?", "odpowiedz": "Brakujący klucz tworzy automatycznie wartość domyślną (tu `[]`), więc `d[k].append(x)` nie rzuca `KeyError`. Wygodne do grupowania."}
+{"id": "python-205", "kategoria": "python", "typ": "wybor", "pytanie": "Co zwróci `(all([]), any([]))`?", "opcje": ["`(False, False)`", "`(True, True)`", "`(True, False)`", "`(False, True)`"], "poprawna": 2, "wyjasnienie": "`all` na pustej sekwencji jest prawdziwe (brak kontrprzykładu), a `any` fałszywe (brak elementu spełniającego)."}
+{"id": "python-206", "kategoria": "python", "typ": "wybor", "pytanie": "Co się stanie po `s = 'abc'; s[0] = 'x'`?", "opcje": ["`s` zmieni się na `'xbc'`", "`IndexError`", "`s` nie zmieni się, ale bez błędu", "`TypeError`, bo `str` jest niemutowalny"], "poprawna": 3, "wyjasnienie": "Stringi są niemutowalne. Nowy napis tworzysz przez np. `'x' + s[1:]` albo `s.replace(...)`."}
+{"id": "python-207", "kategoria": "python", "typ": "fiszka", "pytanie": "Dlaczego `''.join(parts)` jest lepsze niż `s += part` w pętli?", "odpowiedz": "Stringi są niemutowalne, więc każde `+=` może kopiować cały napis (pesymistycznie O(n²)). `join` liczy rozmiar raz i buduje wynik jednorazowo."}
+{"id": "python-208", "kategoria": "python", "typ": "wybor", "pytanie": "Co zwróci `(len('zażółć'), len('zażółć'.encode('utf-8')))`?", "opcje": ["`(6, 6)`", "`(6, 10)`", "`(10, 10)`", "`(10, 6)`"], "poprawna": 1, "wyjasnienie": "`str` liczy znaki Unicode (6). W UTF-8 litery `ż`, `ó`, `ł`, `ć` zajmują po 2 bajty, więc `bytes` ma 10."}
+{"id": "python-209", "kategoria": "python", "typ": "fiszka", "pytanie": "Jak działa protokół iteratora w Pythonie?", "odpowiedz": "Iterowalny obiekt ma `__iter__` zwracający iterator, a ten ma `__next__`. Gdy elementy się skończą, `__next__` rzuca `StopIteration`, co kończy pętlę `for`."}
+{"id": "python-210", "kategoria": "python", "typ": "fiszka", "pytanie": "Czym różni się `[x*x for x in data]` od `(x*x for x in data)` pod względem pamięci?", "odpowiedz": "Lista buduje wszystkie elementy naraz (pamięć O(n)). Wyrażenie generatorowe liczy leniwie po jednym elemencie, więc zużywa stałą pamięć."}
+{"id": "python-211", "kategoria": "python", "typ": "wybor", "pytanie": "Co wypisze `g = (x for x in range(3)); print(list(g), list(g))`?", "opcje": ["`[0, 1, 2] [0, 1, 2]`", "`[] []`", "`[0, 1, 2]` i `StopIteration`", "`[0, 1, 2] []`"], "poprawna": 3, "wyjasnienie": "Generator można przejść tylko raz. Po wyczerpaniu kolejne `list(g)` daje pustą listę, bez błędu."}
+{"id": "python-212", "kategoria": "python", "typ": "fiszka", "pytanie": "Do czego służy `functools.lru_cache` i jakie ma ograniczenie argumentów?", "odpowiedz": "Cache'uje wyniki funkcji dla tych samych argumentów (memoizacja), np. rekurencyjny Fibonacci. Argumenty muszą być hashowalne, np. nie lista."}
+{"id": "python-213", "kategoria": "python", "typ": "wybor", "pytanie": "Co zwróci `partial(pow, 2)(5)` po `from functools import partial`?", "opcje": ["`32`", "`25`", "`10`", "`7`"], "poprawna": 0, "wyjasnienie": "`partial` zamraża pierwszy argument: wywołanie to `pow(2, 5)` = 32, a nie `pow(5, 2)`."}
+{"id": "python-214", "kategoria": "python", "typ": "fiszka", "pytanie": "Co trzeba zrobić z danymi przed `itertools.groupby` i dlaczego?", "odpowiedz": "Posortować po tym samym kluczu. `groupby` łączy tylko sąsiadujące elementy, więc `'aabaa'` da grupy a, b, a, a nie dwie."}
+{"id": "python-215", "kategoria": "python", "typ": "fiszka", "pytanie": "Dlaczego `pathlib.Path` jest wygodniejszy niż `os.path`?", "odpowiedz": "Ścieżka jest obiektem: `p / 'dir' / 'f.txt'`, `p.exists()`, `p.suffix`, `p.read_text()`. Kod jest czytelniejszy niż sklejanie stringów w `os.path.join`."}
+{"id": "python-216", "kategoria": "python", "typ": "fiszka", "pytanie": "Dlaczego w aplikacji lepiej użyć `logging` niż `print`?", "odpowiedz": "Poziomy ważności, formatowanie z czasem i modułem, wiele wyjść (plik, konsola, serwis) i konfiguracja bez zmian w kodzie. `print` nic z tego nie daje."}
+{"id": "python-217", "kategoria": "python", "typ": "wybor", "pytanie": "Który poziom logowania jest domyślny dla loggera root w `logging`?", "opcje": ["`DEBUG`", "`INFO`", "`WARNING`", "`ERROR`"], "poprawna": 2, "wyjasnienie": "Kolejność: `DEBUG` < `INFO` < `WARNING` < `ERROR` < `CRITICAL`. Domyślnie widać od `WARNING`; niżej trzeba ustawić `basicConfig(level=...)`."}
+{"id": "python-218", "kategoria": "python", "typ": "wybor", "pytanie": "Co się stanie przy `json.dumps({'t': datetime.now()})`?", "opcje": ["Zwróci datę w formacie ISO", "Zwróci `{\"t\": null}`", "`TypeError`: obiekt `datetime` nie jest serializowalny", "Zwróci `{\"t\": \"datetime\"}`"], "poprawna": 2, "wyjasnienie": "`json` obsługuje `dict`, `list`, `str`, liczby, `bool`, `None`. Resztę trzeba zamienić ręcznie, np. `isoformat()` lub `default=`."}
+{"id": "python-219", "kategoria": "python", "typ": "fiszka", "pytanie": "Co zwróci `json.loads(json.dumps({1: 'a'}))`?", "odpowiedz": "`{'1': 'a'}`. JSON dopuszcza tylko klucze tekstowe, więc int zamienia się na string. Krotki z kolei wracają jako listy."}
+{"id": "python-220", "kategoria": "python", "typ": "fiszka", "pytanie": "Czym różni się obiekt `datetime` naive od aware?", "odpowiedz": "Naive nie ma informacji o strefie, aware ma `tzinfo`. Porównanie `<`/`>` naive z aware daje `TypeError`, a odejmowanie też. W backendzie trzymaj czas w UTC jako aware."}
+{"id": "python-221", "kategoria": "python", "typ": "wybor", "pytanie": "Co zwróci `[f() for f in [lambda: i for i in range(3)]]`?", "opcje": ["`[2, 2, 2]`", "`[0, 1, 2]`", "`[1, 2, 3]`", "`[0, 0, 0]`"], "poprawna": 0, "wyjasnienie": "Domknięcie wiąże się ze zmienną `i`, nie jej wartością (late binding). Po pętli `i == 2`. Poprawka: `lambda i=i: i`."}
+{"id": "python-222", "kategoria": "python", "typ": "fiszka", "pytanie": "Co zrobi `a, *rest = [1, 2, 3, 4]` i jak działa `a, b = b, a`?", "odpowiedz": "`a=1`, `rest=[2, 3, 4]` (gwiazdka zbiera resztę do listy). W `a, b = b, a` prawa strona jest krotką liczoną najpierw, więc zamiana jest bezpieczna."}
+{"id": "python-223", "kategoria": "python", "typ": "fiszka", "pytanie": "Do czego służy operator morsa `:=` i podaj przykład.", "odpowiedz": "Przypisuje i zwraca wartość w wyrażeniu: `if (n := len(x)) > 10:`. Unika dwukrotnego liczenia, np. w `while chunk := f.read(8):`. Od Pythona 3.8."}
+{"id": "python-224", "kategoria": "python", "typ": "fiszka", "pytanie": "Czym jest `match` w Pythonie i czym różni się od `switch` w innych językach?", "odpowiedz": "Dopasowanie strukturalne (3.10+): wzorce mogą rozbierać krotki, listy, słowniki i klasy, np. `case [x, y]:`. Nie ma fall-through, a `_` to wzorzec domyślny."}
+{"id": "python-225", "kategoria": "python", "typ": "wybor", "pytanie": "Co się stanie przy `B()`, gdy `B` dziedziczy po `ABC` i ma nieimplementowaną `@abstractmethod`?", "opcje": ["`NotImplementedError` przy wywołaniu metody", "Nic, błąd dopiero przy pierwszym użyciu", "`SyntaxError` przy definicji klasy", "`TypeError` przy tworzeniu instancji"], "poprawna": 3, "wyjasnienie": "Instancji klasy z niezaimplementowanymi metodami abstrakcyjnymi nie utworzysz: `TypeError: Can't instantiate abstract class`."}
+{"id": "python-226", "kategoria": "python", "typ": "fiszka", "pytanie": "Co to jest duck typing w Pythonie?", "odpowiedz": "Liczy się to, co obiekt potrafi, nie jego typ: jeśli ma potrzebną metodę, działa. Przykład: `len(x)` działa dla każdego obiektu z `__len__`."}
+{"id": "python-227", "kategoria": "python", "typ": "fiszka", "pytanie": "Co robi `raise NewError(...) from e` i po co?", "odpowiedz": "Ustawia `__cause__`, więc traceback pokazuje, że nowy wyjątek wynika z `e`. Zachowujesz oryginalną przyczynę, np. `KeyError` zamieniony na własny błąd."}
+{"id": "python-228", "kategoria": "python", "typ": "fiszka", "pytanie": "Jak połączone są `__eq__` i `__hash__` i czemu klucz `dict` nie powinien się zmieniać?", "odpowiedz": "Równe obiekty muszą mieć równy hash. Zmiana pól wpływających na hash po wstawieniu do `set`/`dict` powoduje, że obiekt nie zostanie znaleziony."}
+{"id": "python-229", "kategoria": "python", "typ": "wybor", "pytanie": "Co zwróci `sorted([('b',1), ('a',1), ('c',0)], key=lambda t: t[1])`?", "opcje": ["`[('c', 0), ('a', 1), ('b', 1)]`", "`[('c', 0), ('b', 1), ('a', 1)]`", "`[('a', 1), ('b', 1), ('c', 0)]`", "`[('b', 1), ('a', 1), ('c', 0)]`"], "poprawna": 1, "wyjasnienie": "Sortowanie jest stabilne: elementy o równym kluczu zachowują kolejność wejściową, więc `('b', 1)` zostaje przed `('a', 1)`."}
+{"id": "python-230", "kategoria": "python", "typ": "fiszka", "pytanie": "Do czego służy `unittest.mock.patch` w testach?", "odpowiedz": "Na czas testu podmienia obiekt (np. `requests.get`, połączenie z bazą) na atrapę `Mock`. Test jest szybki, deterministyczny i nie dotyka zewnętrznych usług."}
+{"id": "python-231", "kategoria": "python", "typ": "fiszka", "pytanie": "Co daje `@pytest.mark.parametrize` i jak go użyć?", "odpowiedz": "Uruchamia ten sam test dla wielu zestawów danych: `@pytest.mark.parametrize('a,b,exp', [(1,2,3), (0,0,0)])`. Każdy zestaw to osobny przypadek w raporcie."}
+{"id": "python-232", "kategoria": "python", "typ": "fiszka", "pytanie": "Czym są fixtures w `pytest`?", "odpowiedz": "Funkcje z `@pytest.fixture` przygotowujące dane lub zasoby (np. klient bazy). Test dostaje je przez nazwę argumentu, a `yield` pozwala posprzątać po teście."}
+{"id": "python-233", "kategoria": "python", "typ": "fiszka", "pytanie": "Do czego służy plik `__init__.py` i czym jest pakiet?", "odpowiedz": "Pakiet to katalog z modułami importowanymi po nazwie. `__init__.py` oznacza go jako pakiet i wykonuje się przy imporcie, np. do eksportu nazw."}
+{"id": "python-234", "kategoria": "python", "typ": "fiszka", "pytanie": "Czym różni się import względny (`from .utils import x`) od bezwzględnego?", "odpowiedz": "Względny liczy od bieżącego pakietu (`.`, `..`), bezwzględny podaje pełną ścieżkę (`from app.utils import x`). PEP 8 zaleca bezwzględne."}
+{"id": "python-235", "kategoria": "python", "typ": "fiszka", "pytanie": "Czym jest `pyproject.toml` i czym `poetry`/`uv` różnią się od samego `pip`?", "odpowiedz": "To standardowy plik konfiguracji projektu: metadane, zależności, narzędzia. `poetry`/`uv` dodatkowo zarządzają środowiskiem i lockfile; `pip` tylko instaluje."}
+{"id": "python-236", "kategoria": "python", "typ": "wybor", "pytanie": "Co oznacza adnotacja `Optional[int]`?", "opcje": ["`int` albo `None`, równoważne `int | None`", "Opcjonalny argument z wartością domyślną", "Typ `int` lub `float`", "Liczba, która może być pominięta w wywołaniu"], "poprawna": 0, "wyjasnienie": "`Optional[X]` to `Union[X, None]`. Nie czyni argumentu opcjonalnym; wartość domyślną trzeba podać osobno."}
+{"id": "python-237", "kategoria": "python", "typ": "fiszka", "pytanie": "Dlaczego sprawdzamy `x is None` zamiast `x == None`?", "odpowiedz": "`None` jest singletonem, więc `is` sprawdza tożsamość i jest szybkie. `==` można nadpisać w `__eq__`, a `if not x` pomyliłoby `None` z `0` czy `[]`."}
+{"id": "python-238", "kategoria": "python", "typ": "wybor", "pytanie": "Co wypisze `print(-7 // 2, -7 % 2)`?", "opcje": ["`-3 -1`", "`-4 1`", "`-3 1`", "`-4 -1`"], "poprawna": 1, "wyjasnienie": "`//` zaokrągla w dół (do −∞), a wynik `%` ma znak dzielnika. Zachodzi `a == (a // b) * b + a % b`: −8 + 1 = −7."}
+{"id": "python-239", "kategoria": "python", "typ": "wybor", "pytanie": "Co zwróci `(round(2.5), round(3.5))`?", "opcje": ["`(3, 4)`", "`(2, 3)`", "`(2, 4)`", "`(3, 3)`"], "poprawna": 2, "wyjasnienie": "Python 3 zaokrągla połówki do parzystej (banker's rounding): 2.5 → 2, 3.5 → 4."}
+{"id": "python-240", "kategoria": "python", "typ": "wybor", "pytanie": "Co wypisze `0.1 + 0.2 == 0.3` i jak to poprawnie porównać?", "opcje": ["`True`; float jest dokładny", "`False`; użyj `is`", "`True`; ale `0.1 + 0.2` daje `0.3`", "`False`; użyj `math.isclose`"], "poprawna": 3, "wyjasnienie": "Float jest binarny: `0.1 + 0.2` to `0.30000000000000004`. Porównuj z tolerancją (`math.isclose`) lub użyj `Decimal`."}
+{"id": "python-241", "kategoria": "python", "typ": "wybor", "pytanie": "Co wypisze `d = {'l': [1]}; c = d.copy(); c['l'].append(2); print(d)`?", "opcje": ["`{'l': [1]}`", "`{'l': [1, 2]}`", "`{'l': [2]}`", "`KeyError`"], "poprawna": 1, "wyjasnienie": "`d.copy()` i `dict(d)` robią płytką kopię: wewnętrzna lista jest wspólna. Do niezależnej kopii użyj `copy.deepcopy`."}
+{"id": "python-242", "kategoria": "python", "typ": "wybor", "pytanie": "Co się stanie po `x = 1`, `def f(): x += 1`, `f()`?", "opcje": ["Funkcja zwiększy globalne `x` do 2", "`NameError` na poziomie modułu", "Powstanie nowe lokalne `x == 2`", "`UnboundLocalError`"], "poprawna": 3, "wyjasnienie": "Przypisanie w funkcji robi `x` zmienną lokalną, więc odczyt przed przypisaniem nie działa. Potrzeba `global x` (lepiej unikać)."}
+{"id": "python-243", "kategoria": "python", "typ": "wybor", "pytanie": "Co zwróci `a2.items` po `class A: items = []`, `a1, a2 = A(), A()` i `a1.items.append(1)`?", "opcje": ["`[1]`, lista jest wspólna dla klasy", "`[]`, każda instancja ma własną", "`AttributeError`", "`None`"], "poprawna": 0, "wyjasnienie": "Mutowalny atrybut klasy jest współdzielony. Własną listę utwórz w `__init__`: `self.items = []`."}
+{"id": "python-244", "kategoria": "python", "typ": "fiszka", "pytanie": "Kiedy użyć `@staticmethod` zamiast zwykłej metody?", "odpowiedz": "Gdy funkcja logicznie należy do klasy, ale nie potrzebuje `self` ani `cls`, np. walidator formatu. To organizacja kodu, nie zmiana działania."}
+{"id": "python-245", "kategoria": "python", "typ": "fiszka", "pytanie": "Co się stanie, gdy podklasa nadpisze `__init__` i nie wywoła `super().__init__()`?", "odpowiedz": "Inicjalizacja rodzica się nie wykona, więc jego atrybuty nie powstaną i dostęp do nich da `AttributeError`."}
+{"id": "web-101", "kategoria": "web", "typ": "fiszka", "pytanie": "Jak w REST projektuje się adresy zasobów? Podaj dobry i zły przykład.", "odpowiedz": "Zasoby to rzeczowniki, zwykle w liczbie mnogiej: `GET /users/42/orders`. Źle: `/getUserOrders` – czynność wyraża metoda HTTP, nie URL."}
+{"id": "web-102", "kategoria": "web", "typ": "wybor", "pytanie": "Która metoda HTTP NIE jest idempotentna?", "opcje": ["`PUT`", "`DELETE`", "`POST`", "`GET`"], "poprawna": 2, "wyjasnienie": "`POST` zwykle tworzy zasób, więc powtórzenie żądania tworzy kolejny. `PUT`, `DELETE` i `GET` dają ten sam stan po wielu powtórzeniach."}
+{"id": "web-103", "kategoria": "web", "typ": "fiszka", "pytanie": "Co znaczy, że metoda HTTP jest idempotentna? Podaj przykład.", "odpowiedz": "Wielokrotne wykonanie tego samego żądania daje ten sam stan serwera co jedno. Np. `PUT /users/1` czy `DELETE /users/1`. Ważne przy ponawianiu po błędzie sieci."}
+{"id": "web-104", "kategoria": "web", "typ": "wybor", "pytanie": "Czym ASGI różni się od WSGI?", "opcje": ["ASGI obsługuje async i WebSockety, WSGI jest synchroniczne", "ASGI to framework, WSGI to serwer", "WSGI działa tylko z Django", "ASGI służy tylko do plików statycznych"], "poprawna": 0, "wyjasnienie": "WSGI to synchroniczny standard serwer–aplikacja (Flask, Django). ASGI to jego asynchroniczny następca, obsługuje też WebSockety (FastAPI)."}
+{"id": "web-105", "kategoria": "web", "typ": "fiszka", "pytanie": "Flask, Django, FastAPI – do czego który nadaje się najlepiej?", "odpowiedz": "Flask: lekki mikroframework, pełna swoboda. Django: „baterie w zestawie” (ORM, admin, auth), pełne aplikacje. FastAPI: szybkie API, async, walidacja typami."}
+{"id": "web-106", "kategoria": "web", "typ": "fiszka", "pytanie": "Czym jest middleware i gdzie leży w cyklu żądanie–odpowiedź?", "odpowiedz": "Warstwa między serwerem a widokiem: przetwarza żądanie przed handlerem i odpowiedź po nim. Typowo: logowanie, sesje, CORS, autoryzacja."}
+{"id": "web-107", "kategoria": "web", "typ": "fiszka", "pytanie": "Co to jest routing w frameworku webowym?", "odpowiedz": "Dopasowanie metody i ścieżki URL do funkcji obsługującej (widoku/handlera), np. `@app.get(\"/users/{id}\")` kieruje żądanie do konkretnej funkcji."}
+{"id": "web-108", "kategoria": "web", "typ": "fiszka", "pytanie": "Czym jest ORM i jaki daje zysk oraz koszt?", "odpowiedz": "Mapuje tabele na klasy Pythona, więc zapytania piszesz obiektowo (np. SQLAlchemy, Django ORM). Zysk: mniej SQL i boilerplate. Koszt: ryzyko nieefektywnych zapytań."}
+{"id": "web-109", "kategoria": "web", "typ": "wybor", "pytanie": "Jak najczęściej naprawia się problem N+1 zapytań w ORM?", "opcje": ["Dodając więcej indeksów w bazie", "Pobierając powiązane obiekty z góry (JOIN / eager loading)", "Zwiększając limit połączeń", "Wyłączając ORM w produkcji"], "poprawna": 1, "wyjasnienie": "N+1: 1 zapytanie o listę i N o powiązane rekordy. Eager loading (np. `select_related`, `joinedload`) pobiera je jednym zapytaniem."}
+{"id": "web-110", "kategoria": "web", "typ": "fiszka", "pytanie": "Do czego służą migracje bazy danych?", "odpowiedz": "To wersjonowane skrypty zmian schematu (tabele, kolumny), trzymane w repozytorium. Pozwalają spójnie aktualizować bazę na każdym środowisku (np. Alembic, Django)."}
+{"id": "web-111", "kategoria": "web", "typ": "fiszka", "pytanie": "Sesje po stronie serwera a tokeny JWT – główna różnica?", "odpowiedz": "Sesja: stan trzymany na serwerze, klient ma tylko id (w cookie). JWT: podpisany token ze stanem u klienta, serwer niczego nie zapisuje, ale trudniej go unieważnić."}
+{"id": "web-112", "kategoria": "web", "typ": "wybor", "pytanie": "Co daje flaga `HttpOnly` na ciasteczku?", "opcje": ["JavaScript nie może go odczytać", "Wysyłane jest tylko przez HTTPS", "Nie jest wysyłane do innych domen", "Wygasa po zamknięciu karty"], "poprawna": 0, "wyjasnienie": "`HttpOnly` blokuje dostęp z `document.cookie`, co utrudnia kradzież sesji przez XSS. Za HTTPS odpowiada `Secure`, za domeny `SameSite`."}
+{"id": "web-113", "kategoria": "web", "typ": "fiszka", "pytanie": "Uwierzytelnianie a autoryzacja – różnica?", "odpowiedz": "Uwierzytelnianie (authentication): kim jesteś (login, hasło). Autoryzacja (authorization): co ci wolno (role, uprawnienia). Pierwsze jest przed drugim."}
+{"id": "web-114", "kategoria": "web", "typ": "wybor", "pytanie": "Jak poprawnie przechowywać hasła użytkowników?", "opcje": ["Zaszyfrować kluczem AES z konfiguracji", "Zahaszować MD5 z solą", "Zapisać jawnie, ale chronić bazę", "Zahaszować wolnym algorytmem (bcrypt/argon2)"], "poprawna": 3, "wyjasnienie": "Hasła hashuje się wolnym, solonym algorytmem: bcrypt lub argon2. MD5 jest zbyt szybki i łamliwy, a szyfrowanie jest odwracalne."}
+{"id": "web-115", "kategoria": "web", "typ": "fiszka", "pytanie": "Czym jest CORS i kto go egzekwuje?", "odpowiedz": "Mechanizm, w którym serwer nagłówkami (`Access-Control-Allow-Origin`) zezwala stronie z innej domeny na wywołania API. Egzekwuje go przeglądarka, nie serwer."}
+{"id": "web-116", "kategoria": "web", "typ": "fiszka", "pytanie": "Na czym polega atak CSRF i jak się przed nim bronić?", "odpowiedz": "Zły serwis nakłania przeglądarkę zalogowanej ofiary do wysłania żądania do Twojej aplikacji z jej ciasteczkiem. Obrona: token CSRF, ciasteczka `SameSite`."}
+{"id": "web-117", "kategoria": "web", "typ": "wybor", "pytanie": "Co najlepiej chroni przed XSS w szablonach HTML?", "opcje": ["Walidacja hasła po stronie klienta", "Ukrycie pliku `.env`", "Automatyczne escapowanie danych użytkownika", "Użycie metody `POST` zamiast `GET`"], "poprawna": 2, "wyjasnienie": "Silniki szablonów (Jinja2, Django) domyślnie escapują `<`, `>` itd. Nie wyłączaj tego (`|safe`) dla danych od użytkownika."}
+{"id": "web-118", "kategoria": "web", "typ": "wybor", "pytanie": "Jak skutecznie chronić się przed SQL injection?", "opcje": ["Zapytania parametryzowane (placeholdery)", "Usuwanie apostrofów z danych regexem", "Sklejanie zapytań przez f-string", "Ukrycie nazw tabel"], "poprawna": 0, "wyjasnienie": "Parametry przekazuje się osobno od SQL (`cursor.execute(sql, (x,))`), więc baza nigdy nie traktuje ich jak kodu. ORM robi to domyślnie."}
+{"id": "web-119", "kategoria": "web", "typ": "fiszka", "pytanie": "Jak trzymać sekrety (hasła do bazy, klucze API) w aplikacji?", "odpowiedz": "W zmiennych środowiskowych, lokalnie np. z pliku `.env` dodanego do `.gitignore`. Nigdy w kodzie ani w repozytorium. Sekret, który trafił do gita, uznaj za ujawniony i wymień."}
+{"id": "web-120", "kategoria": "web", "typ": "fiszka", "pytanie": "Dlaczego API zwracające listy powinno mieć paginację? Jakie są warianty?", "odpowiedz": "Żeby nie zwracać tysięcy rekordów naraz. Warianty: `limit`/`offset` (prosty) i kursor (stabilny przy zmianach danych, wydajny na dużych zbiorach)."}
+{"id": "web-121", "kategoria": "web", "typ": "wybor", "pytanie": "Do czego służy cache (np. Redis) przed bazą danych?", "opcje": ["Do szyfrowania danych", "Do trwałego backupu bazy", "Do szybszego zwracania często czytanych wyników", "Do uwierzytelniania użytkowników"], "poprawna": 2, "wyjasnienie": "Cache trzyma wyniki kosztownych zapytań w szybkiej pamięci. Trzeba pamiętać o unieważnianiu (TTL), by nie serwować nieaktualnych danych."}
+{"id": "web-122", "kategoria": "web", "typ": "fiszka", "pytanie": "Po co kolejka zadań w tle (np. Celery) w aplikacji webowej?", "odpowiedz": "Żeby wolne zadania (wysyłka maili, raporty) wykonywał osobny worker, a żądanie HTTP odpowiadało od razu. Kolejkę zwykle zapewnia broker (Redis, RabbitMQ)."}
+{"id": "web-123", "kategoria": "web", "typ": "wybor", "pytanie": "Co robi Pydantic w API (np. FastAPI)?", "opcje": ["Szyfruje ruch HTTP", "Waliduje i parsuje dane według typów", "Zarządza migracjami bazy", "Uruchamia zadania w tle"], "poprawna": 1, "wyjasnienie": "Modele Pydantic opisują strukturę danych; błędne wejście daje czytelny błąd (w FastAPI kod `422`), a poprawne jest konwertowane na typy."}
+{"id": "web-124", "kategoria": "web", "typ": "fiszka", "pytanie": "Jak testuje się endpointy API bez uruchamiania prawdziwego serwera?", "odpowiedz": "Klientem testowym frameworka (`app.test_client()` we Flasku, `TestClient` w FastAPI), który wysyła żądania do aplikacji w pamięci. Sprawdzasz status i JSON."}
+{"id": "web-125", "kategoria": "web", "typ": "wybor", "pytanie": "Czego NIE powinno się zapisywać w logach aplikacji?", "opcje": ["Identyfikatora żądania", "Haseł, tokenów i danych osobowych", "Czasu odpowiedzi", "Poziomu błędu"], "poprawna": 1, "wyjasnienie": "Logi bywają szeroko dostępne i długo przechowywane. Hasła i tokeny w logach to wyciek; loguj zdarzenia, id żądania i błędy."}
+{"id": "web-126", "kategoria": "web", "typ": "fiszka", "pytanie": "Po co stawia się nginx przed gunicornem/uvicornem?", "odpowiedz": "Nginx jako reverse proxy obsługuje TLS, pliki statyczne, wolnych klientów i równoważenie obciążenia. Gunicorn/uvicorn uruchamia kod aplikacji."}
+{"id": "web-201", "kategoria": "web", "typ": "fiszka", "pytanie": "Co oznacza wzorzec MTV w Django i czym jest tu „view”?", "odpowiedz": "Model (dane i ORM), Template (prezentacja), View (logika: dostaje request, zwraca response). „View” Django odpowiada kontrolerowi z MVC."}
+{"id": "web-202", "kategoria": "web", "typ": "fiszka", "pytanie": "Kiedy wykonuje się zapytanie SQL w Django QuerySet? Co to „leniwość”?", "odpowiedz": "QuerySet jest leniwy: `filter()`/`exclude()` tylko budują zapytanie. SQL idzie dopiero przy ewaluacji (iteracja, `list()`, `len()`, `bool()`), potem wynik się cache'uje."}
+{"id": "web-203", "kategoria": "web", "typ": "wybor", "pytanie": "Co zrobi `Model.objects.get(pk=999)`, jeśli taki rekord nie istnieje?", "opcje": ["Zwróci `None`", "Rzuci wyjątek `Model.DoesNotExist`", "Zwróci pusty `QuerySet`", "Zwróci `False`"], "poprawna": 1, "wyjasnienie": "`get()` oczekuje dokładnie jednego rekordu: przy braku rzuca `DoesNotExist`, przy wielu `MultipleObjectsReturned`. `filter()` zwraca QuerySet."}
+{"id": "web-204", "kategoria": "web", "typ": "wybor", "pytanie": "Co robi `python manage.py makemigrations` w odróżnieniu od `migrate`?", "opcje": ["`makemigrations` zmienia bazę, `migrate` tworzy pliki", "Oba robią to samo, różnią się tylko nazwą", "`makemigrations` tworzy pliki migracji; `migrate` stosuje je na bazie", "`makemigrations` usuwa stare tabele, `migrate` je tworzy"], "poprawna": 2, "wyjasnienie": "`makemigrations` porównuje modele ze stanem migracji i generuje pliki (do repo). `migrate` wykonuje je na bazie danych."}
+{"id": "web-205", "kategoria": "web", "typ": "fiszka", "pytanie": "Czym jest panel admina Django i do kogo jest przeznaczony?", "odpowiedz": "Automatycznie generowany interfejs CRUD dla modeli (`admin.site.register` lub `@admin.register`). Jest dla zespołu wewnętrznego, nie dla użytkowników końcowych."}
+{"id": "web-206", "kategoria": "web", "typ": "fiszka", "pytanie": "Co zmienia `DEBUG = False` na produkcji w Django i dlaczego `True` jest groźne?", "odpowiedz": "Przy `True` strona błędu pokazuje kod, ustawienia i zmienne, więc wycieka wiedza o systemie. `False` daje ogólne 500/404 i wymaga `ALLOWED_HOSTS`."}
+{"id": "web-207", "kategoria": "web", "typ": "wybor", "pytanie": "Do czego służy `ALLOWED_HOSTS` w Django?", "opcje": ["Do listy adresów IP, które mogą wejść do panelu admina", "Do wskazania hostów bazy danych", "Do konfiguracji domen dla CORS", "Do walidacji nagłówka `Host` (ochrona przed Host header attack)"], "poprawna": 3, "wyjasnienie": "Przy `DEBUG=False` i pustej liście Django odpowiada 400 na każde żądanie. Trzeba wpisać domeny serwisu."}
+{"id": "web-208", "kategoria": "web", "typ": "fiszka", "pytanie": "Do czego służą sygnały (signals) w Django i jaka jest ich wada?", "odpowiedz": "Pozwalają reagować na zdarzenia, np. `post_save`, bez wiązania kodu ze sobą (np. utwórz profil po rejestracji). Wada: niejawny przepływ, trudniejszy do debugowania."}
+{"id": "web-209", "kategoria": "web", "typ": "fiszka", "pytanie": "Do czego służą serializery w Django REST Framework?", "odpowiedz": "Zamieniają obiekty modeli na JSON i odwrotnie oraz walidują dane wejściowe. `ModelSerializer` generuje pola na podstawie modelu."}
+{"id": "web-210", "kategoria": "web", "typ": "fiszka", "pytanie": "Jak działa `Depends` w FastAPI i po co się go używa?", "odpowiedz": "Parametr `x = Depends(fn)`: FastAPI woła `fn` przy każdym żądaniu i wstrzykuje wynik (sesja DB, bieżący użytkownik). W testach można podmienić przez `dependency_overrides`."}
+{"id": "web-211", "kategoria": "web", "typ": "wybor", "pytanie": "Endpoint FastAPI jest `async def` i woła blokujące `time.sleep(5)`. Co się stanie?", "opcje": ["Zablokuje pętlę zdarzeń, więc inne żądania poczekają", "Nic, FastAPI sam przeniesie go do osobnego wątku", "Rzuci wyjątek, bo `sleep` jest niedozwolony", "Tylko to jedno żądanie będzie wolne"], "poprawna": 0, "wyjasnienie": "`def` FastAPI uruchamia w puli wątków, ale `async def` działa w pętli zdarzeń. Blokada w nim wstrzymuje cały proces. Użyj `await asyncio.sleep`."}
+{"id": "web-212", "kategoria": "web", "typ": "fiszka", "pytanie": "Skąd FastAPI ma dokumentację pod `/docs` i czym jest OpenAPI?", "odpowiedz": "Generuje ją automatycznie z podpowiedzi typów i modeli Pydantic. OpenAPI to standardowy opis API (`/openapi.json`), a Swagger UI to narzędzie, które go wyświetla."}
+{"id": "web-213", "kategoria": "web", "typ": "wybor", "pytanie": "Co daje parametr `response_model` w dekoratorze endpointu FastAPI?", "opcje": ["Zmienia metodę HTTP endpointu", "Filtruje i waliduje odpowiedź wg schematu, np. ukrywa `password_hash`", "Włącza cache odpowiedzi", "Wybiera szablon HTML do renderowania"], "poprawna": 1, "wyjasnienie": "Zwrócony obiekt jest przycinany do pól ze schematu, a schemat trafia do dokumentacji OpenAPI."}
+{"id": "web-214", "kategoria": "web", "typ": "fiszka", "pytanie": "Czym są blueprinty we Flasku?", "odpowiedz": "Sposobem modularnego grupowania tras i widoków (np. `auth`, `api`). Rejestruje się je przez `app.register_blueprint(bp, url_prefix='/api')`."}
+{"id": "web-215", "kategoria": "web", "typ": "wybor", "pytanie": "Co się stanie po użyciu obiektu `request` Flaska poza obsługą żądania?", "opcje": ["Zwróci pusty słownik", "Zwróci ostatnie żądanie z cache", "`RuntimeError`: praca poza kontekstem aplikacji/żądania", "Zwróci `None`"], "poprawna": 2, "wyjasnienie": "`request` żyje w kontekście żądania. `g` to magazyn na dane w obrębie jednego kontekstu aplikacji (zwykle jednego żądania)."}
+{"id": "web-216", "kategoria": "web", "typ": "fiszka", "pytanie": "Jak wersjonować API REST i kiedy wprowadzić nową wersję?", "odpowiedz": "Najczęściej w ścieżce: `/api/v1/users`, rzadziej nagłówkiem. Nowa wersja przy zmianach łamiących zgodność; starą utrzymuje się przez okres przejściowy."}
+{"id": "web-217", "kategoria": "web", "typ": "wybor", "pytanie": "Jaki format błędów API jest najlepszą praktyką?", "opcje": ["Raz tekst, raz HTML, zależnie od błędu", "Zawsze 200 i opis błędu w treści", "Sam stack trace w odpowiedzi", "Zawsze ta sama struktura JSON, np. `code`, `message`, `details`"], "poprawna": 3, "wyjasnienie": "Spójny format (np. RFC 9457 `application/problem+json`) ułatwia klientom obsługę. Stack trace nie może wyciekać."}
+{"id": "web-218", "kategoria": "web", "typ": "fiszka", "pytanie": "Jak w REST przekazywać filtrowanie, sortowanie i paginację listy?", "odpowiedz": "Przez parametry zapytania: `GET /orders?status=paid&sort=-created_at&page=2`. Ścieżka identyfikuje zasób, a query go zawęża."}
+{"id": "web-219", "kategoria": "web", "typ": "fiszka", "pytanie": "Czym jest HATEOAS w jednym zdaniu?", "odpowiedz": "Odpowiedź zawiera linki do powiązanych zasobów i dozwolonych akcji, więc klient nawiguje po API jak po stronie WWW. W praktyce rzadko w pełni stosowane."}
+{"id": "web-220", "kategoria": "web", "typ": "wybor", "pytanie": "Czym OpenID Connect różni się od OAuth 2.0?", "opcje": ["OIDC dodaje uwierzytelnianie: ID token (JWT) z tożsamością użytkownika", "OIDC to nowsza wersja OAuth 2.0 bez access tokenów", "OAuth 2.0 służy do logowania, a OIDC do autoryzacji", "OIDC działa tylko z hasłami, bez zewnętrznych dostawców"], "poprawna": 0, "wyjasnienie": "OAuth 2.0 to delegowana autoryzacja (dostęp do zasobów). OIDC to warstwa nad nim, która mówi, kim jest użytkownik (logowanie przez Google)."}
+{"id": "web-221", "kategoria": "web", "typ": "fiszka", "pytanie": "Czym różni się access token od refresh tokena?", "odpowiedz": "Access token jest krótkożyjący (minuty) i wysyłany z każdym żądaniem. Refresh token jest długożyjący, trafia tylko do serwera autoryzacji po nowy access token i można go unieważnić."}
+{"id": "web-222", "kategoria": "web", "typ": "fiszka", "pytanie": "Gdzie w przeglądarce przechowywać tokeny i jakie są kompromisy?", "odpowiedz": "`localStorage`: prosto, ale XSS kradnie token. Ciasteczko `HttpOnly`+`Secure`+`SameSite`: JS go nie czyta, lecz trzeba chronić przed CSRF. Pamięć: znika po odświeżeniu."}
+{"id": "web-223", "kategoria": "web", "typ": "wybor", "pytanie": "Klient przekroczył limit zapytań (rate limit). Co powinno zwrócić API?", "opcje": ["`403 Forbidden` bez dodatkowych nagłówków", "`429 Too Many Requests`, najlepiej z nagłówkiem `Retry-After`", "`500 Internal Server Error`", "`200 OK` z pustą listą"], "poprawna": 1, "wyjasnienie": "429 to kod dedykowany limitom. `Retry-After` mówi, ile czekać. Limity liczy się per IP, użytkownik lub klucz API."}
+{"id": "web-224", "kategoria": "web", "typ": "fiszka", "pytanie": "WebSockets, SSE, polling – czym się różnią i kiedy co wybrać?", "odpowiedz": "Polling: cykliczne zapytania, proste, ale marnotrawne. SSE: jednokierunkowy strumień serwer->klient po HTTP. WebSocket: stałe połączenie dwukierunkowe (czat, gry)."}
+{"id": "web-225", "kategoria": "web", "typ": "fiszka", "pytanie": "Po co uruchamia się wiele workerów gunicorna?", "odpowiedz": "Worker to osobny proces obsługujący (w trybie sync) jedno żądanie naraz. Wiele workerów daje równoległość na wielu rdzeniach, omija GIL i odporność na awarię jednego."}
+{"id": "web-226", "kategoria": "web", "typ": "wybor", "pytanie": "Czym jest webhook?", "opcje": ["Zapytaniem Twojego serwera do API co kilka sekund", "Stałym połączeniem WebSocket z klientem", "Wywołaniem Twojego URL-a przez inną usługę, gdy zajdzie zdarzenie", "Hookiem Gita uruchamianym przy commicie"], "poprawna": 2, "wyjasnienie": "To odwrotność pollingu. Weryfikuj podpis (HMAC), odpowiadaj szybko kodem 2xx i obsługuj powtórki idempotentnie."}
+{"id": "web-227", "kategoria": "web", "typ": "fiszka", "pytanie": "GraphQL a REST – główna różnica, zaleta i koszt GraphQL?", "odpowiedz": "GraphQL ma zwykle jeden endpoint, a klient w zapytaniu wybiera pola (mniej over/under-fetchingu). Koszty: trudniejszy cache HTTP, ryzyko N+1 i złożonych zapytań."}
+{"id": "web-228", "kategoria": "web", "typ": "wybor", "pytanie": "Jak bezpiecznie obsłużyć upload pliku od użytkownika?", "opcje": ["Zaufać nazwie pliku i nagłówkowi `Content-Type`", "Zapisać plik pod oryginalną nazwą w katalogu aplikacji", "Sprawdzić tylko rozszerzenie w JavaScripcie", "Limit rozmiaru, własna nazwa pliku, walidacja typu po zawartości"], "poprawna": 3, "wyjasnienie": "Nazwa i MIME pochodzą od klienta, więc można je podrobić (np. `../../x`). Generuj nazwę, sprawdzaj magic bytes, trzymaj poza kodem lub w object storage."}
+{"id": "web-229", "kategoria": "web", "typ": "fiszka", "pytanie": "Czy SPA z tokenem w nagłówku `Authorization` potrzebuje ochrony CSRF?", "odpowiedz": "Zwykle nie: przeglądarka nie dokleja nagłówka automatycznie, jak ciasteczka. Gdy uwierzytelnianie opiera się na ciasteczku, ochrona CSRF jest nadal potrzebna."}
+{"id": "web-230", "kategoria": "web", "typ": "wybor", "pytanie": "Co robi nagłówek `Content-Security-Policy` (CSP)?", "opcje": ["Ogranicza źródła skryptów i zasobów, łagodząc skutki XSS", "Wymusza HTTPS na czas z `max-age`", "Blokuje zgadywanie typu MIME przez przeglądarkę", "Włącza CORS dla wszystkich domen"], "poprawna": 0, "wyjasnienie": "HTTPS wymusza HSTS, a `X-Content-Type-Options: nosniff` blokuje zgadywanie MIME. CSP to osobna warstwa obrony przed XSS."}
+{"id": "web-231", "kategoria": "web", "typ": "fiszka", "pytanie": "Jak serwować pliki statyczne w produkcji Django?", "odpowiedz": "`collectstatic` zbiera je w jednym katalogu, a serwuje nginx, CDN lub WhiteNoise. `runserver` i sam gunicorn nie nadają się do tego wydajnie."}
+{"id": "web-232", "kategoria": "web", "typ": "wybor", "pytanie": "Po co stosuje się pulę połączeń do bazy (np. PgBouncer)?", "opcje": ["Szyfruje ruch między aplikacją a bazą", "Reużycie połączeń obniża koszt ich otwierania i limituje ich liczbę", "Dzieli zapytania na kilka baz", "Zastępuje indeksy przyspieszeniem zapytań"], "poprawna": 1, "wyjasnienie": "Nowe połączenie jest kosztowne, a Postgres ma limit `max_connections`. Wiele workerów bez puli szybko go wyczerpie."}
+{"id": "web-233", "kategoria": "web", "typ": "fiszka", "pytanie": "Czym jest klucz idempotentności (`Idempotency-Key`) przy płatnościach?", "odpowiedz": "Klient wysyła unikalny klucz z żądaniem. Serwer zapamiętuje wynik pierwszego wykonania i przy powtórce (timeout, retry) zwraca go bez ponownego obciążenia karty."}
+{"id": "web-234", "kategoria": "web", "typ": "fiszka", "pytanie": "Po co endpoint health check i czym różni się liveness od readiness?", "odpowiedz": "Np. `/health` zwraca 200, gdy aplikacja działa. Liveness: proces żyje (inaczej restart). Readiness: gotowa na ruch (np. baza dostępna). Używa go load balancer lub Kubernetes."}
+{"id": "web-235", "kategoria": "web", "typ": "wybor", "pytanie": "Jak przesyłać daty i czas w API?", "opcje": ["Jako tekst w lokalnej strefie serwera, np. `23.11.26 14:30`", "Jako czas lokalny użytkownika bez informacji o strefie", "W UTC w formacie ISO 8601, np. `2026-11-23T14:30:00Z`", "Jako polski zapis `23/11/2026`"], "poprawna": 2, "wyjasnienie": "UTC i ISO 8601 są jednoznaczne i sortowalne. Konwersję do strefy użytkownika robi dopiero interfejs."}
+{"id": "http-001", "kategoria": "http", "typ": "wybor", "pytanie": "Który kod HTTP oznacza, że zasób nie istnieje?", "opcje": ["400", "401", "404", "500"], "poprawna": 2, "wyjasnienie": "4xx to błędy klienta: 400 = źle zbudowane żądanie, 401 = brak uwierzytelnienia. 500 to błąd serwera."}
+{"id": "http-002", "kategoria": "http", "typ": "fiszka", "pytanie": "Czym różni się GET od POST?", "odpowiedz": "GET pobiera dane, parametry idą w URL, powinien być bezpieczny i idempotentny. POST wysyła dane w ciele żądania i zwykle zmienia stan na serwerze."}
+{"id": "http-101", "kategoria": "http", "typ": "fiszka", "pytanie": "PUT a PATCH – czym się różnią?", "odpowiedz": "`PUT` zastępuje cały zasób przesłaną reprezentacją (idempotentny). `PATCH` zmienia tylko wskazane pola, np. samo `email`."}
+{"id": "http-102", "kategoria": "http", "typ": "wybor", "pytanie": "Do czego przeglądarka używa żądania preflight `OPTIONS`?", "opcje": ["Do pobrania pliku favicon", "Do sprawdzenia, czy serwer zezwala na żądanie cross-origin", "Do odświeżenia sesji", "Do usunięcia zasobu"], "poprawna": 1, "wyjasnienie": "Przed niektórymi żądaniami cross-origin (np. `PUT`, własne nagłówki) przeglądarka pyta `OPTIONS`, czy CORS na to pozwala."}
+{"id": "http-103", "kategoria": "http", "typ": "fiszka", "pytanie": "Do czego służą nagłówki `Content-Type` i `Authorization`?", "odpowiedz": "`Content-Type` mówi, w jakim formacie jest body (np. `application/json`). `Authorization` niesie dane uwierzytelniające, np. `Bearer <token>`."}
+{"id": "http-104", "kategoria": "http", "typ": "wybor", "pytanie": "Co oznacza `Cache-Control: no-store`?", "opcje": ["Odpowiedź ma być cache'owana przez rok", "Odpowiedź nie może być zapisywana w cache", "Cache ma sprawdzić ważność u serwera", "Odpowiedź jest tylko do odczytu"], "poprawna": 1, "wyjasnienie": "`no-store` zakazuje zapisu odpowiedzi w cache (wrażliwe dane). `no-cache` pozwala zapisać, ale wymaga rewalidacji; `max-age` ustala czas ważności."}
+{"id": "http-105", "kategoria": "http", "typ": "fiszka", "pytanie": "Co zapewnia HTTPS (TLS)?", "odpowiedz": "Szyfrowanie ruchu, integralność danych i uwierzytelnienie serwera przez certyfikat. Nikt po drodze nie podejrzy ani nie zmieni treści żądań."}
+{"id": "http-106", "kategoria": "http", "typ": "fiszka", "pytanie": "Co dzieje się po wpisaniu URL w przeglądarce? (w skrócie)", "odpowiedz": "DNS zamienia domenę na adres IP, następnie połączenie TCP i TLS, żądanie HTTP, odpowiedź serwera i renderowanie strony wraz z kolejnymi zasobami."}
+{"id": "http-107", "kategoria": "http", "typ": "wybor", "pytanie": "Co ważnego wnosi HTTP/2 względem HTTP/1.1?", "opcje": ["Brak nagłówków", "Multipleksowanie wielu żądań w jednym połączeniu", "Zamianę JSON na XML", "Działanie bez TCP i IP"], "poprawna": 1, "wyjasnienie": "HTTP/2 przesyła wiele żądań równolegle jednym połączeniem, kompresuje nagłówki i jest binarny. Semantyka (metody, kody) zostaje ta sama."}
+{"id": "http-108", "kategoria": "http", "typ": "fiszka", "pytanie": "Co znaczy, że HTTP jest bezstanowy?", "odpowiedz": "Każde żądanie jest niezależne: serwer nie pamięta poprzednich. Stan (logowanie) przenosi się przez ciasteczka, sesje lub tokeny w każdym żądaniu."}
+{"id": "http-109", "kategoria": "http", "typ": "wybor", "pytanie": "Który kod oznacza stałe przeniesienie zasobu pod nowy adres?", "opcje": ["`301`", "`302`", "`304`", "`307`"], "poprawna": 0, "wyjasnienie": "`301 Moved Permanently` to stałe przekierowanie (adres w `Location`). `302` i `307` są tymczasowe, `304` oznacza „nie zmieniono”."}
+{"id": "http-110", "kategoria": "http", "typ": "wybor", "pytanie": "Użytkownik jest zalogowany, ale nie ma uprawnień do zasobu. Jaki kod?", "opcje": ["`400`", "`401`", "`404`", "`403`"], "poprawna": 3, "wyjasnienie": "`403 Forbidden`: wiemy, kim jesteś, ale nie wolno. `401 Unauthorized` oznacza brak lub zły dowód tożsamości."}
+{"id": "http-111", "kategoria": "http", "typ": "wybor", "pytanie": "Jaki kod zwrócić po udanym `DELETE`, bez treści w odpowiedzi?", "opcje": ["`200` z body", "`201`", "`204`", "`202`"], "poprawna": 2, "wyjasnienie": "`204 No Content` oznacza sukces bez body. `201 Created` jest po utworzeniu zasobu (z `Location`), `202` po przyjęciu do późniejszego przetworzenia."}
+{"id": "http-112", "kategoria": "http", "typ": "fiszka", "pytanie": "Parametr ścieżki a query – kiedy którego użyć?", "odpowiedz": "Ścieżka identyfikuje zasób: `/users/42`. Query dopracowuje widok kolekcji: `/users?role=admin&page=2` (filtry, sortowanie, paginacja)."}
+{"id": "http-201", "kategoria": "http", "typ": "fiszka", "pytanie": "Jak działa `ETag` z `If-None-Match` i kiedy pojawia się `304`?", "odpowiedz": "Serwer wysyła `ETag` (odcisk wersji zasobu). Klient odsyła go w `If-None-Match`. Jeśli zasób się nie zmienił, serwer odpowiada `304 Not Modified` bez treści."}
+{"id": "http-202", "kategoria": "http", "typ": "wybor", "pytanie": "Która wartość `SameSite` nie wysyła ciasteczka w żadnym żądaniu między witrynami?", "opcje": ["`Strict`", "`Lax`", "`None`", "`Secure`"], "poprawna": 0, "wyjasnienie": "`Lax` wysyła ciasteczko przy nawigacji najwyższego poziomu GET. `None` wysyła zawsze, ale wymaga `Secure`. `Secure` nie jest wartością `SameSite`."}
+{"id": "http-203", "kategoria": "http", "typ": "fiszka", "pytanie": "Czym różni się `Content-Length` od `Transfer-Encoding: chunked`?", "odpowiedz": "`Content-Length` podaje rozmiar treści z góry. `chunked` (HTTP/1.1) wysyła treść kawałkami o nieznanym z góry rozmiarze, np. stream, kończąc kawałkiem o długości 0."}
+{"id": "http-204", "kategoria": "http", "typ": "wybor", "pytanie": "Co daje trwałe połączenie (`keep-alive`) w HTTP/1.1?", "opcje": ["Utrzymanie sesji użytkownika po zamknięciu przeglądarki", "Kilka żądań po jednym połączeniu TCP, bez ponownego handshake'u", "Szyfrowanie połączenia", "Automatyczne ponawianie nieudanych żądań"], "poprawna": 1, "wyjasnienie": "Unika się kosztu TCP (i TLS) przy każdym żądaniu. W HTTP/1.1 jest domyślne, zamknięcie wymaga `Connection: close`."}
+{"id": "http-205", "kategoria": "http", "typ": "fiszka", "pytanie": "Do czego służy nagłówek `Accept` i czym jest negocjacja treści?", "odpowiedz": "Klient podaje preferowane formaty, np. `Accept: application/json`. Serwer wybiera reprezentację albo zwraca `406 Not Acceptable`. Podobnie działa `Accept-Language`."}
+{"id": "http-206", "kategoria": "http", "typ": "wybor", "pytanie": "Serwer jest chwilowo w konserwacji. Co zwrócić?", "opcje": ["`429 Too Many Requests`", "`500 Internal Server Error`", "`503 Service Unavailable` z nagłówkiem `Retry-After`", "`404 Not Found`"], "poprawna": 2, "wyjasnienie": "503 oznacza chwilową niedostępność, a `Retry-After` mówi, kiedy wrócić. 429 dotyczy przekroczenia limitu przez klienta."}
+{"id": "http-207", "kategoria": "http", "typ": "fiszka", "pytanie": "Za reverse proxy (nginx) widzisz 500, 502 i 504. Co oznaczają?", "odpowiedz": "500: błąd w samej aplikacji. 502 Bad Gateway: proxy dostało niepoprawną odpowiedź lub aplikacja leży. 504 Gateway Timeout: aplikacja nie odpowiedziała w czasie."}
+{"id": "http-208", "kategoria": "http", "typ": "wybor", "pytanie": "Co zwraca metoda HEAD?", "opcje": ["Tylko treść odpowiedzi, bez nagłówków", "Listę metod dozwolonych dla zasobu", "Treść pierwszych 100 bajtów zasobu", "Te same nagłówki co GET, ale bez treści odpowiedzi"], "poprawna": 3, "wyjasnienie": "Przydatne do sprawdzenia istnienia, rozmiaru lub `ETag` bez pobierania treści (`curl -I`). Listę metod zwraca `OPTIONS`."}
+{"id": "http-209", "kategoria": "http", "typ": "fiszka", "pytanie": "Czym jest kodowanie URL (percent-encoding) i po co?", "odpowiedz": "Znaki specjalne zapisuje się jako `%XX`, np. spacja to `%20`, a `&` to `%26`. Dzięki temu wartości w ścieżce lub query nie psują struktury adresu. W Pythonie: `urllib.parse.quote`."}
+{"id": "http-210", "kategoria": "http", "typ": "wybor", "pytanie": "Co wyśle `curl -d 'a=1&b=2' https://x.pl/api` bez flagi `-X`?", "opcje": ["`GET` z parametrami w adresie", "`POST` z `Content-Type: application/x-www-form-urlencoded`", "`PUT` z treścią JSON", "`POST` z `Content-Type: application/json`"], "poprawna": 1, "wyjasnienie": "Flaga `-d` domyślnie ustawia POST i typ formularza. Dla JSON dodaj `-H 'Content-Type: application/json'`. Z `-v` zobaczysz nagłówki."}
+{"id": "projektowanie-201", "kategoria": "projektowanie", "typ": "fiszka", "pytanie": "Wymień 4 filary OOP i jak wyglądają w Pythonie.", "odpowiedz": "Enkapsulacja (`_x` to konwencja, brak prawdziwego `private`), dziedziczenie, polimorfizm (duck typing) i abstrakcja (`abc.ABC`, ukrywanie szczegółów za interfejsem)."}
+{"id": "projektowanie-202", "kategoria": "projektowanie", "typ": "fiszka", "pytanie": "Na co zwracasz uwagę podczas code review?", "odpowiedz": "Poprawność i przypadki brzegowe, czytelność i nazwy, testy, brak duplikacji, bezpieczeństwo, wpływ na resztę kodu. Komentuj kod, nie osobę; pytaj zamiast rozkazywać."}
+{"id": "projektowanie-203", "kategoria": "projektowanie", "typ": "fiszka", "pytanie": "Co oznacza SOLID? Wymień zasady jednym zdaniem każda.", "odpowiedz": "S: jedna odpowiedzialność. O: otwarte na rozszerzenie, zamknięte na modyfikację. L: podtyp zastępuje typ bazowy. I: małe interfejsy. D: zależność od abstrakcji."}
+{"id": "projektowanie-204", "kategoria": "projektowanie", "typ": "wybor", "pytanie": "Klasa `Report` liczy dane, formatuje PDF i wysyła e-mail. Którą zasadę SOLID łamie?", "opcje": ["Open/Closed", "Liskov Substitution", "Interface Segregation", "Single Responsibility"], "poprawna": 3, "wyjasnienie": "Ma wiele powodów do zmiany (logika, format, wysyłka). Zgodnie z SRP rozdzielamy to na osobne klasy."}
+{"id": "projektowanie-205", "kategoria": "projektowanie", "typ": "fiszka", "pytanie": "Na czym polega zasada Open/Closed? Podaj przykład w Pythonie.", "odpowiedz": "Nowe zachowanie dodajesz nowym kodem, bez edycji starego. Zamiast łańcucha `if/elif` po typie: klasy ze wspólną metodą albo słownik funkcji, do którego dopisujesz nowy wpis."}
+{"id": "projektowanie-206", "kategoria": "projektowanie", "typ": "wybor", "pytanie": "Który przykład łamie zasadę podstawienia Liskov (LSP)?", "opcje": ["`Square(Rectangle)`, który zmienia szerokość i wysokość razem", "`Dog(Animal)` z dodatkową metodą `fetch()`", "Klasa z dwiema metodami publicznymi", "Podklasa wywołująca `super().__init__()`"], "poprawna": 0, "wyjasnienie": "Kod oczekujący `Rectangle` zakłada niezależne boki. Podklasa łamiąca to założenie nie może go bezpiecznie zastąpić."}
+{"id": "projektowanie-207", "kategoria": "projektowanie", "typ": "fiszka", "pytanie": "Czym jest Dependency Inversion, a czym Dependency Injection?", "odpowiedz": "DIP: moduły wysokiego poziomu zależą od abstrakcji, nie od konkretów. DI: technika, w której zależność dostajesz z zewnątrz (np. w `__init__`), zamiast tworzyć ją w środku."}
+{"id": "projektowanie-208", "kategoria": "projektowanie", "typ": "wybor", "pytanie": "Co oznaczają skróty DRY, KISS i YAGNI?", "opcje": ["Don't Repeat Yourself, Keep It Simple, You Aren't Gonna Need It", "Do Refactor Yearly, Keep It Short, You Always Need It", "Data Reuse Yield, Keep It Safe, Yield And Go Next", "Don't Rewrite Yet, Keep It Secure, You Aren't Gonna Ever"], "poprawna": 0, "wyjasnienie": "Nie powtarzaj wiedzy, trzymaj prostotę, nie pisz funkcji na zapas. Bez DRY na siłę: zła abstrakcja bywa gorsza od duplikacji."}
+{"id": "projektowanie-209", "kategoria": "projektowanie", "typ": "fiszka", "pytanie": "Dlaczego „kompozycja zamiast dziedziczenia”?", "odpowiedz": "Dziedziczenie silnie wiąże podklasę z bazą i sztywno ustala hierarchię. Kompozycja (obiekt ma pole z innym obiektem) jest elastyczna, łatwiejsza do testów i podmiany."}
+{"id": "projektowanie-210", "kategoria": "projektowanie", "typ": "fiszka", "pytanie": "Singleton: dlaczego w Pythonie to często antywzorzec?", "odpowiedz": "To ukryty globalny stan: utrudnia testy i zależności. W Pythonie moduł jest już singletonem (importowany raz), więc wystarczy obiekt na poziomie modułu albo DI."}
+{"id": "projektowanie-211", "kategoria": "projektowanie", "typ": "wybor", "pytanie": "Masz kilka wymiennych algorytmów płatności wybieranych w runtime. Jaki wzorzec pasuje?", "opcje": ["Singleton", "Strategy", "Observer", "Facade"], "poprawna": 1, "wyjasnienie": "Strategy: rodzina wymiennych algorytmów za wspólnym interfejsem, wybierana w runtime. Factory zaś tylko tworzy obiekty."}
+{"id": "projektowanie-212", "kategoria": "projektowanie", "typ": "fiszka", "pytanie": "Na czym polega wzorzec Observer? Podaj przykład.", "odpowiedz": "Obiekt (subject) powiadamia zarejestrowanych obserwatorów o zmianie, nie znając ich konkretnie. Przykłady: sygnały Django, event listenery w GUI, pub/sub."}
+{"id": "projektowanie-213", "kategoria": "projektowanie", "typ": "wybor", "pytanie": "Czym wzorzec Decorator różni się od dekoratora `@` w Pythonie?", "opcje": ["To dokładnie to samo", "Wzorzec działa tylko na klasach abstrakcyjnych", "Wzorzec to obiekt-opakowanie; `@` to składnia dla funkcji i klas", "Wzorzec działa tylko w czasie kompilacji"], "poprawna": 2, "wyjasnienie": "Wzorzec dodaje zachowanie przez obiekt-opakowanie. `@dekorator` to cukier składniowy: `f = dekorator(f)`. Pokrewne, ale nie tożsame."}
+{"id": "projektowanie-214", "kategoria": "projektowanie", "typ": "wybor", "pytanie": "Jak wygląda dobry projekt modułów pod względem coupling i cohesion?", "opcje": ["Wysoki coupling, niska cohesion", "Niski coupling, niska cohesion", "Wysoki coupling, wysoka cohesion", "Niski coupling, wysoka cohesion"], "poprawna": 3, "wyjasnienie": "Moduły mają być spójne w środku (cohesion) i luźno powiązane ze sobą (coupling), dzięki czemu zmiana w jednym mało psuje inne."}
+{"id": "projektowanie-215", "kategoria": "projektowanie", "typ": "fiszka", "pytanie": "Wymień 3 code smells i jak je naprawić.", "odpowiedz": "Długa funkcja: wydziel mniejsze. Magic numbers: nazwane stałe. God class: podziel według odpowiedzialności. Inne: duplikacja, zbyt wiele parametrów."}
+{"id": "projektowanie-216", "kategoria": "projektowanie", "typ": "fiszka", "pytanie": "Czym jest refaktoryzacja i czym jest dług techniczny?", "odpowiedz": "Refaktoryzacja: zmiana struktury kodu bez zmiany zachowania, zwykle pod osłoną testów. Dług techniczny: skróty, które dziś przyspieszają, ale podnoszą koszt późniejszych zmian."}
+{"id": "projektowanie-217", "kategoria": "projektowanie", "typ": "fiszka", "pytanie": "Opisz piramidę testów i różnicę między testem jednostkowym a integracyjnym.", "odpowiedz": "Dużo szybkich unit testów (jedna jednostka, izolowana), mniej integracyjnych (współpraca modułów, np. z bazą), najmniej e2e (cały system, wolne, kruche)."}
+{"id": "projektowanie-218", "kategoria": "projektowanie", "typ": "wybor", "pytanie": "Jaka jest kolejność cyklu TDD?", "opcje": ["Refactor, Green, Red", "Green, Red, Refactor", "Red, Green, Refactor", "Red, Refactor, Green"], "poprawna": 2, "wyjasnienie": "Najpierw test, który nie przechodzi (Red), potem minimalny kod (Green), na końcu porządkowanie przy zielonych testach (Refactor)."}
+{"id": "projektowanie-219", "kategoria": "projektowanie", "typ": "fiszka", "pytanie": "Mock a stub w testach: na czym polega różnica?", "odpowiedz": "Stub zwraca z góry ustalone dane, żeby test mógł działać. Mock dodatkowo weryfikuje interakcje, np. czy metoda została wywołana z oczekiwanymi argumentami."}
+{"id": "projektowanie-220", "kategoria": "projektowanie", "typ": "wybor", "pytanie": "Co mówi pokrycie testami (coverage) równe 100%?", "opcje": ["Że kod nie ma błędów", "Że każda linia została wykonana w testach, nie że sprawdzona", "Że testy pokrywają wszystkie przypadki", "Że kod jest zgodny z wymaganiami"], "poprawna": 1, "wyjasnienie": "Coverage mierzy wykonany kod, nie jakość asercji. Niskie pokrycie wskazuje luki, wysokie nie gwarantuje poprawności."}
+{"id": "git-001", "kategoria": "git", "typ": "fiszka", "pytanie": "Czym różni się `git merge` od `git rebase`?", "odpowiedz": "Merge łączy gałęzie commitem scalającym i nie zmienia historii. Rebase przenosi twoje commity na nową bazę: historia jest liniowa, ale commity dostają nowe hashe."}
+{"id": "git-002", "kategoria": "git", "typ": "wybor", "pytanie": "Co robi `git stash`?", "opcje": ["Usuwa niezatwierdzone zmiany na zawsze", "Odkłada niezatwierdzone zmiany na bok, żeby wrócić do nich później", "Tworzy nową gałąź z bieżących zmian"], "poprawna": 1, "wyjasnienie": "Zmiany wracają przez `git stash pop`, listę pokazuje `git stash list`."}
+{"id": "git-101", "kategoria": "git", "typ": "fiszka", "pytanie": "Czym różnią się katalog roboczy, staging area i commit w Gicie?", "odpowiedz": "Katalog roboczy to Twoje pliki na dysku. `git add` przenosi zmiany do staging (index), czyli listy do następnego commita. `git commit` zapisuje ją w historii."}
+{"id": "git-102", "kategoria": "git", "typ": "wybor", "pytanie": "Co robi `git reset --hard HEAD~1`?", "opcje": ["Tworzy nowy commit odwracający ostatni", "Cofa commit, a zmiany zostają w katalogu roboczym", "Cofa commit, ale zostawia zmiany w staging", "Cofa commit i usuwa zmiany także z indeksu i katalogu roboczego"], "poprawna": 3, "wyjasnienie": "`--soft` zostawia zmiany w staging, `--mixed` (domyślny) w katalogu roboczym, `--hard` kasuje je całkowicie."}
+{"id": "git-103", "kategoria": "git", "typ": "fiszka", "pytanie": "Czym różni się `git revert` od `git reset`?", "odpowiedz": "`revert` tworzy nowy commit odwracający zmiany, więc historia zostaje (bezpieczny dla wspólnych gałęzi). `reset` przesuwa wskaźnik gałęzi i przepisuje historię."}
+{"id": "git-104", "kategoria": "git", "typ": "wybor", "pytanie": "Czym różni się `git fetch` od `git pull`?", "opcje": ["`fetch` pobiera zmiany bez scalania; `pull` to `fetch` + merge", "To dwie nazwy tego samego polecenia", "`pull` tylko pokazuje zmiany, `fetch` je scala", "`fetch` wysyła zmiany na serwer, `pull` je pobiera"], "poprawna": 0, "wyjasnienie": "`fetch` aktualizuje tylko zdalne referencje (np. `origin/main`). `pull` dodatkowo scala (lub robi rebase) do bieżącej gałęzi."}
+{"id": "git-105", "kategoria": "git", "typ": "fiszka", "pytanie": "Skąd się bierze konflikt przy merge i jak go rozwiązać?", "odpowiedz": "Powstaje, gdy obie gałęzie zmieniły te same linie. Otwierasz plik ze znacznikami `<<<<<<<`, wybierasz właściwą wersję, robisz `git add`, potem `git commit`."}
+{"id": "git-106", "kategoria": "git", "typ": "wybor", "pytanie": "Na czym polega trunk-based development w porównaniu z GitFlow?", "opcje": ["Krótkie gałęzie i częste merge'e do jednej głównej gałęzi", "Osobne długie gałęzie `develop`, `release` i `hotfix`", "Każdy programista pracuje na własnym forku bez merge", "Commity trafiają bezpośrednio na produkcję bez testów"], "poprawna": 0, "wyjasnienie": "Trunk-based: małe, szybko scalane zmiany do `main`, często z feature flagami. GitFlow ma długotrwałe gałęzie i bardziej złożony proces."}
+{"id": "git-107", "kategoria": "git", "typ": "fiszka", "pytanie": "Czym jest pull request i po co robi się code review?", "odpowiedz": "PR to prośba o scalenie gałęzi, z miejscem na dyskusję i testy CI. Review wyłapuje błędy, dzieli wiedzę w zespole i pilnuje jakości oraz spójnego stylu kodu."}
+{"id": "git-108", "kategoria": "git", "typ": "wybor", "pytanie": "Dodałeś plik do `.gitignore`, ale Git nadal go śledzi. Dlaczego?", "opcje": ["Trzeba użyć `git add -f` na tym pliku", "Pliki w `.gitignore` zawsze są śledzone, ale nie wysyłane", "Plik był już śledzony; trzeba go usunąć z indeksu: `git rm --cached`", "`.gitignore` działa dopiero po restarcie komputera"], "poprawna": 2, "wyjasnienie": "`.gitignore` dotyczy tylko plików nieśledzonych. Śledzony plik odepnij poleceniem `git rm --cached plik`."}
+{"id": "git-109", "kategoria": "git", "typ": "fiszka", "pytanie": "Do czego służy `git cherry-pick`?", "odpowiedz": "Kopiuje wybrany commit z innej gałęzi na bieżącą jako nowy commit (z nowym hashem), bez scalania całej gałęzi. Przydatne np. do hotfixa."}
+{"id": "git-110", "kategoria": "git", "typ": "wybor", "pytanie": "Czym jest `HEAD` w Gicie?", "opcje": ["Nazwą domyślnej gałęzi zdalnej", "Plikiem z listą ignorowanych plików", "Pierwszym commitem w repozytorium", "Wskaźnikiem na bieżący commit, zwykle przez aktualną gałąź"], "poprawna": 3, "wyjasnienie": "`HEAD` wskazuje, na czym aktualnie jesteś. Zwykle to czubek bieżącej gałęzi; `HEAD~1` to commit wcześniej."}
+{"id": "git-111", "kategoria": "git", "typ": "fiszka", "pytanie": "Jak poprawić ostatni commit i kiedy to bezpieczne?", "odpowiedz": "`git commit --amend` zmienia treść lub wiadomość ostatniego commita (powstaje nowy hash). Bezpieczne tylko, gdy commit nie został jeszcze wypchnięty do wspólnej gałęzi."}
+{"id": "git-112", "kategoria": "git", "typ": "wybor", "pytanie": "Dlaczego nie robi się `git push --force` na wspólnej gałęzi?", "opcje": ["Wymaga uprawnień administratora systemu", "Jest za wolne dla dużych repozytoriów", "Nadpisuje historię i może skasować cudze commity", "Usuwa wszystkie tagi z repozytorium"], "poprawna": 2, "wyjasnienie": "Force-push zastępuje historię na serwerze; koledzy tracą commity lub mają rozjechane repo. Bezpieczniej `--force-with-lease`, tylko na własnej gałęzi."}
+{"id": "git-201", "kategoria": "git", "typ": "fiszka", "pytanie": "Co pokazuje `git log --oneline --graph --all` i kiedy się przydaje?", "odpowiedz": "Skrócone commity (jedna linia) z rysunkiem drzewa gałęzi, dla wszystkich gałęzi. Przydaje się do oceny, jak rozeszły się gałęzie przed merge lub rebase."}
+{"id": "git-202", "kategoria": "git", "typ": "wybor", "pytanie": "Zmieniłeś plik i zrobiłeś `git add`. Co pokaże samo `git diff`?", "opcje": ["Wszystkie zmiany względem ostatniego commita", "Różnice między lokalną gałęzią a `origin`", "Nic dla tego pliku — pokazuje tylko zmiany niezaindeksowane", "Tylko zmiany w plikach nieśledzonych"], "poprawna": 2, "wyjasnienie": "`git diff` porównuje katalog roboczy ze staging area. Zmiany już dodane widać w `git diff --staged`."}
+{"id": "git-203", "kategoria": "git", "typ": "fiszka", "pytanie": "Czym są `git switch` i `git restore` i dlaczego zastąpiły `git checkout`?", "odpowiedz": "`switch` przełącza gałęzie, `restore` cofa zmiany w plikach. `checkout` robił obie rzeczy naraz, co mylało i groziło utratą zmian."}
+{"id": "git-204", "kategoria": "git", "typ": "fiszka", "pytanie": "Czym jest detached HEAD i jak nie stracić commitów zrobionych w tym stanie?", "odpowiedz": "HEAD wskazuje na konkretny commit, a nie na gałąź. Nowe commity nie mają gałęzi, więc zrób `git switch -c nazwa`, zanim przełączysz się gdzie indziej."}
+{"id": "git-205", "kategoria": "git", "typ": "wybor", "pytanie": "Zrobiłeś `git reset --hard` i zgubiłeś commity. Jak je zwykle odzyskać?", "opcje": ["`git reflog`, znaleźć hash i `git reset --hard <hash>`", "`git log --all`, bo usunięte commity zawsze tam są", "`git stash pop`, który przywraca ostatnie commity", "Nie da się, `reset --hard` kasuje je trwale"], "poprawna": 0, "wyjasnienie": "Reflog zapisuje, gdzie był HEAD. Commity bez referencji żyją jeszcze jakiś czas, zanim zbierze je `git gc`."}
+{"id": "git-206", "kategoria": "git", "typ": "fiszka", "pytanie": "Do czego służy `git bisect`?", "odpowiedz": "Do znalezienia commita, który wprowadził błąd. Oznaczasz commity jako good/bad, a Git wyszukuje binarnie, więc potrzeba log2(n) kroków."}
+{"id": "git-207", "kategoria": "git", "typ": "wybor", "pytanie": "Czym różni się tag annotated (`git tag -a`) od lightweight?", "opcje": ["Lightweight jest wysyłany na zdalne repo, annotated tylko lokalnie", "Annotated może wskazywać tylko commity z gałęzi `main`", "Nie ma różnicy, `-a` tylko zmienia kolor w logu", "Annotated: pełny obiekt (autor, data, opis); lightweight: sam wskaźnik"], "poprawna": 3, "wyjasnienie": "Annotated nadaje się na wydania (wersje). Lightweight to tymczasowa zakładka, bez metadanych."}
+{"id": "git-208", "kategoria": "git", "typ": "fiszka", "pytanie": "Jak wygląda dobry komunikat commita?", "odpowiedz": "Krótki temat w trybie rozkazującym (np. `Add login form`), do ok. 50 znaków. W treści wyjaśnij, dlaczego zmiana powstała — co zmieniono, widać w diffie."}
+{"id": "git-209", "kategoria": "git", "typ": "fiszka", "pytanie": "Czym jest squash merge i jaka jest jego wada?", "odpowiedz": "Wszystkie commity gałęzi łączą się w jeden commit na docelowej gałęzi, więc historia jest czysta. Wada: tracisz szczegółową historię i autorstwo poszczególnych kroków."}
+{"id": "git-210", "kategoria": "git", "typ": "wybor", "pytanie": "Do czego służy `git blame plik.py`?", "opcje": ["Wskazuje linie, które powodują konflikty merge", "Przy każdej linii: kto i w którym commicie ostatnio ją zmienił", "Cofa ostatnią zmianę wskazanego autora", "Pokazuje listę plików z błędami składni"], "poprawna": 1, "wyjasnienie": "Służy do zbadania kontekstu zmiany: z hasha przejdziesz do commita i jego opisu. Nie służy do szukania winnych."}
+{"id": "sql-001", "kategoria": "sql", "typ": "fiszka", "pytanie": "Czym różni się `WHERE` od `HAVING`?", "odpowiedz": "WHERE filtruje wiersze przed grupowaniem. HAVING filtruje grupy po GROUP BY, więc można w nim używać agregatów, np. HAVING COUNT(*) > 5."}
+{"id": "sql-002", "kategoria": "sql", "typ": "fiszka", "pytanie": "Co to jest klucz obcy?", "odpowiedz": "Kolumna, która wskazuje na klucz główny innej tabeli. Baza pilnuje, żeby nie wskazywała na nieistniejący wiersz."}
+{"id": "sql-101", "kategoria": "sql", "typ": "fiszka", "pytanie": "Czym różni się `INNER JOIN` od `LEFT JOIN`?", "odpowiedz": "`INNER JOIN` zwraca tylko wiersze z dopasowaniem w obu tabelach. `LEFT JOIN` zwraca wszystkie wiersze z lewej, a brak dopasowania daje `NULL` po prawej."}
+{"id": "sql-102", "kategoria": "sql", "typ": "wybor", "pytanie": "Jaka jest główna wada indeksu na kolumnie?", "opcje": ["Blokuje dostęp do tabeli dla innych użytkowników", "Uniemożliwia użycie `WHERE` na tej kolumnie", "Spowalnia `INSERT`/`UPDATE` i zajmuje miejsce", "Zmienia typ danych kolumny"], "poprawna": 2, "wyjasnienie": "Indeks przyspiesza odczyt (`WHERE`, `JOIN`, `ORDER BY`), ale każdy zapis musi go aktualizować, a on sam zajmuje pamięć."}
+{"id": "sql-103", "kategoria": "sql", "typ": "fiszka", "pytanie": "Czym jest klucz główny (primary key)?", "odpowiedz": "Kolumna (lub zestaw kolumn) jednoznacznie identyfikująca wiersz. Musi być unikalna i nie może być `NULL`; w tabeli jest tylko jeden."}
+{"id": "sql-104", "kategoria": "sql", "typ": "wybor", "pytanie": "Co zwróci `SELECT dzial, COUNT(*) FROM pracownicy GROUP BY dzial`?", "opcje": ["Liczbę pracowników w każdym dziale", "Błąd, bo brakuje klauzuli `WHERE`", "Łączną liczbę wierszy w tabeli", "Nazwę działu z największą liczbą osób"], "poprawna": 0, "wyjasnienie": "`GROUP BY` grupuje wiersze po `dzial`, a `COUNT(*)` liczy wiersze w każdej grupie."}
+{"id": "sql-105", "kategoria": "sql", "typ": "fiszka", "pytanie": "Na czym polegają 1NF, 2NF i 3NF (podstawowo)?", "odpowiedz": "1NF: wartości atomowe, bez list w komórce. 2NF: brak zależności od części klucza złożonego. 3NF: brak zależności między kolumnami niekluczowymi."}
+{"id": "sql-106", "kategoria": "sql", "typ": "wybor", "pytanie": "Które polecenie usuwa całą tabelę razem ze strukturą?", "opcje": ["`TRUNCATE TABLE`", "`DROP TABLE`", "`DELETE FROM` bez `WHERE`", "`ALTER TABLE`"], "poprawna": 1, "wyjasnienie": "`DROP` usuwa tabelę razem ze strukturą. `TRUNCATE` szybko czyści wszystkie wiersze, ale tabela zostaje. `DELETE` usuwa wiersze wybrane przez `WHERE`."}
+{"id": "sql-107", "kategoria": "sql", "typ": "fiszka", "pytanie": "Co oznacza skrót ACID w transakcjach?", "odpowiedz": "Atomicity (wszystko albo nic), Consistency (zachowane reguły danych), Isolation (transakcje nie wchodzą sobie w drogę), Durability (zatwierdzone dane przetrwają awarię)."}
+{"id": "sql-108", "kategoria": "sql", "typ": "wybor", "pytanie": "Jak poprawnie sprawdzić, czy kolumna `email` jest pusta (`NULL`)?", "opcje": ["`WHERE email EQUALS NULL`", "`WHERE email = NULL`", "`WHERE email IS NULL`", "`WHERE email == 0`"], "poprawna": 2, "wyjasnienie": "`NULL` oznacza brak wartości, a porównanie `= NULL` daje wynik nieznany. Zawsze używamy `IS NULL` lub `IS NOT NULL`."}
+{"id": "sql-109", "kategoria": "sql", "typ": "fiszka", "pytanie": "Czym jest ograniczenie `UNIQUE` i czym różni się od klucza głównego?", "odpowiedz": "`UNIQUE` wymusza brak duplikatów w kolumnie. W tabeli może ich być wiele i zwykle dopuszcza `NULL`, a klucz główny jest jeden i `NULL` wyklucza."}
+{"id": "sql-110", "kategoria": "sql", "typ": "wybor", "pytanie": "Kiedy bazę NoSQL wybierzesz zamiast relacyjnej?", "opcje": ["Gdy nie chcesz używać żadnego serwera", "Gdy dane mają elastyczny schemat i trzeba skalować poziomo", "Gdy potrzebne są złożone `JOIN`-y i transakcje ACID", "Gdy dane są ściśle tabelaryczne i stałe"], "poprawna": 1, "wyjasnienie": "NoSQL (np. MongoDB) sprawdza się przy elastycznym schemacie i dużej skali. Relacyjne bazy lepsze są przy złożonych relacjach i spójności."}
+{"id": "sql-111", "kategoria": "sql", "typ": "fiszka", "pytanie": "Na czym polega problem N+1 zapytań?", "odpowiedz": "Jedno zapytanie pobiera N rekordów, a potem dla każdego leci osobne zapytanie (np. o powiązane dane): razem N+1. Rozwiązanie: `JOIN` lub eager loading."}
+{"id": "sql-112", "kategoria": "sql", "typ": "wybor", "pytanie": "Kiedy zwykle wolisz `JOIN` zamiast podzapytania?", "opcje": ["`JOIN` jest zawsze wolniejszy", "Gdy chcesz tylko jedną wartość skalarną", "Gdy potrzebujesz kolumn z obu tabel w wyniku", "Gdy tabela nie ma żadnego klucza"], "poprawna": 2, "wyjasnienie": "`JOIN` zwraca kolumny z obu tabel. Podzapytanie świetnie nadaje się do filtrowania (`IN`, `EXISTS`) lub wartości skalarnych; optymalizator często robi z nich to samo."}
+{"id": "sql-113", "kategoria": "sql", "typ": "fiszka", "pytanie": "Co zwraca `SELECT MAX(cena) FROM produkty WHERE kategoria = 'AGD'`?", "odpowiedz": "Jedną wartość: najwyższą cenę wśród produktów z kategorii AGD (lub `NULL`, jeśli takich produktów nie ma)."}
+{"id": "sql-114", "kategoria": "sql", "typ": "wybor", "pytanie": "Co zwraca `SELECT name FROM users ORDER BY age DESC LIMIT 1`?", "opcje": ["Imię najstarszego użytkownika", "Wiek najstarszego użytkownika", "Imię najmłodszego użytkownika", "Imiona wszystkich użytkowników posortowane"], "poprawna": 0, "wyjasnienie": "`ORDER BY age DESC` sortuje malejąco, więc pierwszy wiersz to najstarszy. `LIMIT 1` zostawia tylko jego, a `SELECT` pokazuje `name`."}
+{"id": "sql-201", "kategoria": "sql", "typ": "wybor", "pytanie": "Tabela `a(x)`: 1,2,2; tabela `b(x)`: 2,3. Ile wierszy zwróci `SELECT x FROM a UNION SELECT x FROM b`?", "opcje": ["5 (wszystkie wiersze obu tabel)", "2 (tylko wspólne wartości)", "3 (wartości 1, 2, 3)", "4 (usuwa duplikaty tylko między tabelami)"], "poprawna": 2, "wyjasnienie": "`UNION` usuwa duplikaty z całego wyniku. `UNION ALL` zwróciłoby 5 wierszy i jest szybsze, bo nie deduplikuje."}
+{"id": "sql-202", "kategoria": "sql", "typ": "fiszka", "pytanie": "Na czym polega upsert i jak go zapisać w PostgreSQL?", "odpowiedz": "Wstaw wiersz, a jeśli koliduje klucz, zaktualizuj go: `INSERT ... ON CONFLICT (id) DO UPDATE SET ...`. W MySQL jest to `ON DUPLICATE KEY UPDATE`."}
+{"id": "sql-203", "kategoria": "sql", "typ": "wybor", "pytanie": "Które imiona zwróci `WHERE imie LIKE '_la'`?", "opcje": ["Trzyliterowe kończące się na `la`, np. `Ala`, `Ola`", "Wszystkie kończące się na `la`, np. `Kamila`", "Tylko `Ala`, bo `_` oznacza literę `A`", "Zaczynające się od `la`, np. `Lala`"], "poprawna": 0, "wyjasnienie": "`_` zastępuje dokładnie jeden znak, a `%` dowolną liczbę znaków (też zero)."}
+{"id": "sql-204", "kategoria": "sql", "typ": "wybor", "pytanie": "Tabela ma 4 wiersze, w kolumnie `miasto` 2 z nich to `NULL`. Co zwróci `SELECT COUNT(*), COUNT(miasto)`?", "opcje": ["4 i 4", "2 i 2", "2 i 4", "4 i 2"], "poprawna": 3, "wyjasnienie": "`COUNT(*)` liczy wiersze, a `COUNT(kolumna)` pomija `NULL`."}
+{"id": "sql-205", "kategoria": "sql", "typ": "fiszka", "pytanie": "Czym jest widok (`VIEW`) i po co go używać?", "odpowiedz": "Zapisane zapytanie `SELECT`, które zachowuje się jak tabela. Upraszcza złożone zapytania i ogranicza dostęp do kolumn. Zwykły widok nie przechowuje danych."}
+{"id": "sql-206", "kategoria": "sql", "typ": "fiszka", "pytanie": "Czym jest CTE (`WITH`) i kiedy je wybierzesz zamiast podzapytania?", "odpowiedz": "Nazwane, tymczasowe zapytanie na czas jednego polecenia: `WITH t AS (SELECT ...) SELECT ... FROM t`. Czytelniejsze przy wielu krokach i pozwala na rekurencję."}
+{"id": "sql-207", "kategoria": "sql", "typ": "fiszka", "pytanie": "Co robi `ROW_NUMBER() OVER (PARTITION BY dzial ORDER BY pensja DESC)`?", "odpowiedz": "Numeruje wiersze osobno w każdym dziale, od najwyższej pensji (1, 2, 3...). Nie zwija wierszy jak `GROUP BY`. Przydaje się do top-N w grupie."}
+{"id": "sql-208", "kategoria": "sql", "typ": "wybor", "pytanie": "Jest indeks na `(miasto, wiek)`. Które zapytanie z niego skorzysta?", "opcje": ["Tylko `WHERE wiek > 30`", "`WHERE miasto = 'Łódź'` i `WHERE miasto = 'Łódź' AND wiek > 30`", "Tylko `WHERE miasto = 'Łódź' AND wiek > 30`", "Każde zapytanie po `miasto` lub `wiek` osobno"], "poprawna": 1, "wyjasnienie": "Obowiązuje reguła lewego prefiksu: indeks działa od pierwszej kolumny. Samo `wiek` zwykle go nie wykorzysta."}
+{"id": "sql-209", "kategoria": "sql", "typ": "fiszka", "pytanie": "Co robi `EXPLAIN` i na co patrzysz w wyniku?", "odpowiedz": "Pokazuje plan wykonania zapytania, bez wyniku. Sprawdzasz, czy użyto indeksu, czy jest pełny skan tabeli (`Seq Scan`) i jaki jest szacowany koszt."}
+{"id": "sql-210", "kategoria": "sql", "typ": "fiszka", "pytanie": "Czym jest dirty read i które poziomy izolacji go dopuszczają?", "odpowiedz": "Odczyt danych z cudzej niezatwierdzonej transakcji, która może zrobić rollback. Dopuszcza go tylko `READ UNCOMMITTED`; od `READ COMMITTED` w górę jest wykluczony."}
+{"id": "sql-211", "kategoria": "sql", "typ": "fiszka", "pytanie": "Czym jest deadlock w bazie i jak sobie z nim radzić?", "odpowiedz": "Dwie transakcje czekają na swoje blokady nawzajem. Baza wykrywa to i przerywa jedną z nich. Zmniejszasz ryzyko, blokując wiersze w stałej kolejności i trzymając transakcje krótkie."}
+{"id": "sql-212", "kategoria": "sql", "typ": "wybor", "pytanie": "Co oznacza `ON DELETE CASCADE` na kluczu obcym `zamowienia.klient_id`?", "opcje": ["Usunięcie klienta jest blokowane, gdy ma zamówienia", "W zamówieniach `klient_id` zmienia się na `NULL`", "Usunięcie klienta automatycznie usuwa jego zamówienia", "Zamówienia są kopiowane do tabeli archiwalnej"], "poprawna": 2, "wyjasnienie": "To akcja referencyjna. Blokuje `RESTRICT`/`NO ACTION`, a `SET NULL` zeruje klucz. `CASCADE` usuwa rekordy zależne."}
+{"id": "sql-213", "kategoria": "sql", "typ": "fiszka", "pytanie": "Dlaczego paginacja przez `LIMIT/OFFSET` zwalnia przy dużym offsecie i co jest alternatywą?", "odpowiedz": "Baza musi przejść i odrzucić wszystkie pominięte wiersze. Alternatywa: paginacja kursorem (keyset), np. `WHERE id > ostatnie_id ORDER BY id LIMIT 20`."}
+{"id": "sql-214", "kategoria": "sql", "typ": "wybor", "pytanie": "Dlaczego `SELECT dzial, imie, COUNT(*) FROM p GROUP BY dzial` zwykle zgłasza błąd?", "opcje": ["`imie` nie jest w `GROUP BY` ani w funkcji agregującej", "`COUNT(*)` nie może stać obok zwykłych kolumn", "`GROUP BY` wymaga najpierw `ORDER BY`", "`dzial` musi stać po `COUNT(*)`"], "poprawna": 0, "wyjasnienie": "Kolumny spoza `GROUP BY` muszą być agregowane. Standardowe silniki (PostgreSQL, MySQL domyślnie) odrzucą zapytanie."}
+{"id": "sql-215", "kategoria": "sql", "typ": "fiszka", "pytanie": "Czym różni się `CHAR(n)` od `VARCHAR(n)`?", "odpowiedz": "`CHAR(n)` ma stałą długość i dopełnia spacjami. `VARCHAR(n)` przechowuje tekst o zmiennej długości, do `n` znaków. Zwykle wybierasz `VARCHAR`."}
+{"id": "sql-216", "kategoria": "sql", "typ": "wybor", "pytanie": "`m.x`: 1,2. `n.x`: 1, NULL. Co zwróci `SELECT x FROM m WHERE x NOT IN (SELECT x FROM n)`?", "opcje": ["2", "1", "1 i 2", "Pusty wynik"], "poprawna": 3, "wyjasnienie": "`x NOT IN (..., NULL)` daje `UNKNOWN`, więc żaden wiersz nie przechodzi. `NOT EXISTS` zwróciłoby 2. Pułapka częsta na rozmowach."}
+{"id": "algorytmy-101", "kategoria": "algorytmy", "typ": "fiszka", "pytanie": "Jaka jest złożoność w Pythonie: `x in list`, `x in dict`, `list.append`?", "odpowiedz": "`x in list` to O(n). `x in dict` średnio O(1) (tablica haszująca). `list.append` to zamortyzowane O(1)."}
+{"id": "algorytmy-102", "kategoria": "algorytmy", "typ": "wybor", "pytanie": "Ile mniej więcej kroków zrobi algorytm O(log n) dla n = 1 000 000?", "opcje": ["Około 1 000 000", "Około 500 000", "Około 1000", "Około 20"], "poprawna": 3, "wyjasnienie": "log₂(1 000 000) ≈ 20. O(n) to milion kroków, a O(n²) około biliona, więc różnica rośnie ogromnie."}
+{"id": "algorytmy-103", "kategoria": "algorytmy", "typ": "fiszka", "pytanie": "Jaki warunek musi spełniać dane, żeby użyć wyszukiwania binarnego?", "odpowiedz": "Dane muszą być posortowane i mieć dostęp po indeksie. Wtedy co krok odrzucasz połowę przedziału, co daje O(log n)."}
+{"id": "algorytmy-104", "kategoria": "algorytmy", "typ": "wybor", "pytanie": "Czym różni się stos od kolejki?", "opcje": ["Stos jest posortowany, kolejka nie", "Oba działają tak samo, różnią się nazwą", "Stos: FIFO; kolejka: LIFO", "Stos: LIFO (ostatni wchodzi, pierwszy wychodzi); kolejka: FIFO"], "poprawna": 3, "wyjasnienie": "Stos (np. wywołania funkcji, undo) zdejmuje ostatnio dodany element, a kolejka (np. zadania do wykonania) najdawniej dodany."}
+{"id": "algorytmy-105", "kategoria": "algorytmy", "typ": "fiszka", "pytanie": "Na czym polega idea tablicy haszującej (hash table)?", "odpowiedz": "Funkcja haszująca zamienia klucz na indeks w tablicy, więc dostęp jest średnio O(1). Kolizje (ten sam indeks) obsługuje się np. łańcuchowaniem."}
+{"id": "algorytmy-106", "kategoria": "algorytmy", "typ": "wybor", "pytanie": "Co się stanie z funkcją rekurencyjną bez przypadku bazowego?", "opcje": ["Będzie wywoływać się w nieskończoność aż do `RecursionError`", "Zwróci `None` i zakończy się", "Wykona się dokładnie raz", "Python sam doda przypadek bazowy"], "poprawna": 0, "wyjasnienie": "Przypadek bazowy zatrzymuje rekurencję. Bez niego stos wywołań rośnie, aż Python zgłosi `RecursionError`."}
+{"id": "algorytmy-107", "kategoria": "algorytmy", "typ": "fiszka", "pytanie": "Kiedy w Pythonie użyć `set` zamiast listy?", "odpowiedz": "Gdy liczy się szybkie sprawdzanie przynależności (`in`, średnio O(1)), usuwanie duplikatów albo operacje na zbiorach (suma, część wspólna). Zbiór nie ma indeksów ani gwarantowanej kolejności."}
+{"id": "algorytmy-108", "kategoria": "algorytmy", "typ": "wybor", "pytanie": "Jaka jest średnia złożoność dobrych algorytmów sortowania, np. `sorted()`?", "opcje": ["O(n log n)", "O(n)", "O(log n)", "O(n²)"], "poprawna": 0, "wyjasnienie": "Sortowanie porównawcze nie zejdzie poniżej O(n log n). `sorted()` w Pythonie (Timsort) ma O(n log n) w najgorszym przypadku."}
+{"id": "algorytmy-201", "kategoria": "algorytmy", "typ": "fiszka", "pytanie": "Czym różni się BFS od DFS i jakiej struktury danych używa każdy?", "odpowiedz": "BFS idzie poziomami (najpierw sąsiedzi) i używa kolejki. DFS schodzi jak najgłębiej i używa stosu lub rekurencji."}
+{"id": "algorytmy-202", "kategoria": "algorytmy", "typ": "wybor", "pytanie": "Jak znajdziesz najkrótszą ścieżkę (liczoną w krawędziach) w grafie nieważonym?", "opcje": ["DFS z rekurencją", "BFS od wierzchołka startowego", "Sortowanie wierzchołków i wyszukiwanie binarne", "Algorytm zachłanny po losowych krawędziach"], "poprawna": 1, "wyjasnienie": "BFS odwiedza wierzchołki w kolejności rosnącej odległości, więc pierwsze dotarcie do celu jest najkrótsze. Dla wag potrzebny jest Dijkstra."}
+{"id": "algorytmy-203", "kategoria": "algorytmy", "typ": "wybor", "pytanie": "Jak memoizacja zmienia złożoność naiwnego rekurencyjnego Fibonacciego?", "opcje": ["Z O(n) na O(log n)", "Z O(n^2) na O(n)", "Z wykładniczej O(2^n) na liniową O(n)", "Nie zmienia, tylko oszczędza pamięć"], "poprawna": 2, "wyjasnienie": "Każdą wartość `fib(k)` liczymy raz i zapamiętujemy, np. `@functools.cache`. To podstawa programowania dynamicznego."}
+{"id": "algorytmy-204", "kategoria": "algorytmy", "typ": "wybor", "pytanie": "Co się stanie w Pythonie przy rekurencji głębszej niż domyślny limit (ok. 1000)?", "opcje": ["Rzucony zostanie `RecursionError`", "Python automatycznie przejdzie na iterację", "Program zawiesi się bez komunikatu", "Wynik zostanie obcięty do 1000 wywołań"], "poprawna": 0, "wyjasnienie": "Limit chroni stos wywołań (`sys.getrecursionlimit()` daje 1000). Przy głębokiej rekurencji lepsza jest pętla."}
+{"id": "algorytmy-205", "kategoria": "algorytmy", "typ": "fiszka", "pytanie": "Tablica (lista) a lista wiązana: kiedy która jest lepsza?", "odpowiedz": "Tablica: dostęp po indeksie O(1), wstawianie w środku O(n). Lista wiązana: wstawianie/usuwanie O(1) przy znanym węźle, ale dostęp O(n) i gorsza lokalność pamięci."}
+{"id": "algorytmy-206", "kategoria": "algorytmy", "typ": "wybor", "pytanie": "Kiedy wyszukiwanie w drzewie BST ma złożoność O(log n)?", "opcje": ["Zawsze, z definicji BST", "Gdy wszystkie wartości są unikalne", "Gdy drzewo ma tylko lewe poddrzewa", "Gdy drzewo jest zrównoważone"], "poprawna": 3, "wyjasnienie": "Dla wstawiania wartości posortowanych BST degeneruje się w listę i szukanie to O(n). Pomagają drzewa AVL i czerwono-czarne."}
+{"id": "algorytmy-207", "kategoria": "algorytmy", "typ": "fiszka", "pytanie": "Jak znaleźć k największych elementów dużej kolekcji i jaka jest złożoność?", "odpowiedz": "`heapq.nlargest(k, dane)` albo kopiec min o rozmiarze k. Złożoność O(n log k), co bywa lepsze niż pełne sortowanie O(n log n)."}
+{"id": "algorytmy-208", "kategoria": "algorytmy", "typ": "fiszka", "pytanie": "Na czym polega technika dwóch wskaźników (two pointers)?", "odpowiedz": "Dwa indeksy przesuwają się po danych, np. od końców ku środkowi w posortowanej tablicy. Pozwala rozwiązać zadania typu para o sumie X w O(n) zamiast O(n^2)."}
+{"id": "algorytmy-209", "kategoria": "algorytmy", "typ": "fiszka", "pytanie": "Na czym polega technika przesuwanego okna (sliding window)?", "odpowiedz": "Utrzymujesz okno na kolejnych elementach i przesuwasz je, aktualizując wynik (np. sumę) zamiast liczyć od zera. Daje O(n), np. dla maksymalnej sumy k elementów."}
+{"id": "algorytmy-210", "kategoria": "algorytmy", "typ": "wybor", "pytanie": "Jaka jest złożoność czasowa: `for i in range(n): for j in range(n): ...`?", "opcje": ["O(n)", "O(n^2)", "O(2n)", "O(n log n)"], "poprawna": 1, "wyjasnienie": "Pętla wewnętrzna wykonuje się n razy dla każdej z n iteracji zewnętrznej, czyli n·n kroków."}
+{"id": "algorytmy-211", "kategoria": "algorytmy", "typ": "fiszka", "pytanie": "Czym jest złożoność pamięciowa? Podaj przykład O(1) i O(n).", "odpowiedz": "Ile dodatkowej pamięci zużywa algorytm względem rozmiaru wejścia. O(1): kilka zmiennych w pętli. O(n): kopia listy lub zbiór widzianych elementów."}
+{"id": "algorytmy-212", "kategoria": "algorytmy", "typ": "wybor", "pytanie": "Co wypisze `s = 'kajak'; print(s == s[::-1])`?", "opcje": ["`False`", "`True`", "`kajak`", "`TypeError`"], "poprawna": 1, "wyjasnienie": "`s[::-1]` to odwrócony napis, a palindrom jest równy własnemu odbiciu. Złożoność O(n) czasu i pamięci."}
+{"id": "algorytmy-213", "kategoria": "algorytmy", "typ": "fiszka", "pytanie": "Jak sprawdzić w Pythonie, czy dwa słowa są anagramami?", "odpowiedz": "`sorted(a) == sorted(b)` (O(n log n)) albo `Counter(a) == Counter(b)` (O(n)). Zwykle najpierw normalizuj wielkość liter."}
+{"id": "algorytmy-214", "kategoria": "algorytmy", "typ": "fiszka", "pytanie": "Opisz ideę odwracania listy wiązanej.", "odpowiedz": "Przechodzisz po liście, trzymając `prev`, `curr` i `next`. Dla każdego węzła przestawiasz `curr.next = prev`, potem przesuwasz wskaźniki. Czas O(n), pamięć O(1)."}
+{"id": "algorytmy-215", "kategoria": "algorytmy", "typ": "wybor", "pytanie": "Jak najszybciej sprawdzić, czy lista `l` zawiera duplikaty?", "opcje": ["Porównać każdą parę elementów, O(n^2)", "`l.count(x)` dla pierwszego elementu", "`l.index(l[0])`, który zwraca duplikat", "`len(l) != len(set(l))`, średnio O(n)"], "poprawna": 3, "wyjasnienie": "Zbiór usuwa powtórzenia, więc krótszy zbiór oznacza duplikaty. Zagnieżdżone porównania to O(n^2). Wymaga elementów hashowalnych."}
+{"id": "algorytmy-216", "kategoria": "algorytmy", "typ": "fiszka", "pytanie": "Dlaczego do kolejki używa się `collections.deque`, a nie `list.pop(0)`?", "odpowiedz": "`list.pop(0)` jest O(n), bo przesuwa wszystkie elementy. `deque.popleft()` i `append()` są O(1) na obu końcach."}
+{"id": "docker-001", "kategoria": "docker", "typ": "wybor", "pytanie": "Czym jest obraz (image) w Dockerze?", "opcje": ["Uruchomiony proces z własnym systemem plików", "Szablon tylko do odczytu, z którego tworzy się kontenery", "Plik docker-compose.yml"], "poprawna": 1, "wyjasnienie": "Kontener to uruchomiona instancja obrazu, tak jak obiekt jest instancją klasy."}
+{"id": "docker-101", "kategoria": "docker", "typ": "fiszka", "pytanie": "Czym różni się `CMD` od `ENTRYPOINT` w Dockerfile?", "odpowiedz": "`ENTRYPOINT` określa główny program kontenera, a `CMD` podaje domyślne argumenty lub komendę. `CMD` łatwo nadpisać w `docker run`, `ENTRYPOINT` trudniej."}
+{"id": "docker-102", "kategoria": "docker", "typ": "wybor", "pytanie": "Czemu w Dockerfile najpierw kopiuje się `requirements.txt`, a dopiero potem resztę kodu?", "opcje": ["Żeby obraz był mniejszy", "Bo `pip` wymaga tej kolejności", "Cache warstwy z zależnościami nie unieważnia się przy zmianie kodu", "Żeby kontener startował szybciej"], "poprawna": 2, "wyjasnienie": "Docker używa cache warstw. Zmiana kodu unieważnia tylko późniejsze warstwy, więc instalacja zależności nie wykonuje się ponownie."}
+{"id": "docker-103", "kategoria": "docker", "typ": "fiszka", "pytanie": "Do czego służy plik `.dockerignore`?", "odpowiedz": "Wskazuje pliki i katalogi (np. `.git`, `venv`, `__pycache__`), których nie wysyła się do kontekstu budowania. Przyspiesza build i zmniejsza obraz."}
+{"id": "docker-104", "kategoria": "docker", "typ": "wybor", "pytanie": "Co oznacza `-p 8080:80` w `docker run`?", "opcje": ["Port 8080 hosta jest przekierowany na port 80 kontenera", "Port 80 hosta na port 8080 kontenera", "Kontener używa portów od 80 do 8080", "Ogranicza ruch do portu 8080"], "poprawna": 0, "wyjasnienie": "Format to `host:kontener`. Ruch na porcie 8080 maszyny hosta trafia do portu 80 w kontenerze."}
+{"id": "docker-105", "kategoria": "docker", "typ": "fiszka", "pytanie": "Czym różni się volume od bind mounta?", "odpowiedz": "Volume jest zarządzany przez Dockera i przechowywany w jego katalogu. Bind mount podpina konkretną ścieżkę z hosta, np. katalog z kodem podczas developmentu."}
+{"id": "docker-106", "kategoria": "docker", "typ": "fiszka", "pytanie": "Do czego służy Docker Compose?", "odpowiedz": "Do opisania i uruchamiania wielu kontenerów (np. aplikacja, baza, cache) w jednym pliku `docker-compose.yml`, jedną komendą `docker compose up`."}
+{"id": "docker-107", "kategoria": "docker", "typ": "wybor", "pytanie": "Jaki jest główny cel multi-stage build?", "opcje": ["Budowanie obrazu równolegle na wielu maszynach", "Uruchamianie wielu kontenerów naraz", "Szyfrowanie warstw obrazu", "Mały obraz końcowy bez narzędzi potrzebnych tylko do budowania"], "poprawna": 3, "wyjasnienie": "W jednym etapie buduje się aplikację (kompilatory, narzędzia), a do obrazu końcowego kopiuje tylko wynik. Obraz jest mniejszy i bezpieczniejszy."}
+{"id": "docker-108", "kategoria": "docker", "typ": "fiszka", "pytanie": "Dlaczego nie warto uruchamiać procesu w kontenerze jako root?", "odpowiedz": "Przy podatności w aplikacji atakujący ma wtedy większe uprawnienia w kontenerze i łatwiej o ucieczkę na hosta. W Dockerfile używa się instrukcji `USER`."}
+{"id": "docker-109", "kategoria": "docker", "typ": "wybor", "pytanie": "Którą komendą wejdziesz do działającego kontenera `web`, żeby uruchomić w nim powłokę?", "opcje": ["`docker logs web sh`", "`docker exec -it web sh`", "`docker attach --new web`", "`docker build web sh`"], "poprawna": 1, "wyjasnienie": "`docker exec` uruchamia dodatkowy proces w działającym kontenerze, a `-it` daje interaktywny terminal."}
+{"id": "docker-110", "kategoria": "docker", "typ": "fiszka", "pytanie": "Jak obejrzeć logi kontenera i śledzić je na bieżąco?", "odpowiedz": "`docker logs -f nazwa_kontenera`. Flaga `-f` (follow) działa jak `tail -f`. Logi to to, co aplikacja zapisuje na stdout i stderr."}
+{"id": "docker-111", "kategoria": "docker", "typ": "wybor", "pytanie": "Jak kontenery w jednej sieci Dockera (np. w Compose) zwykle łączą się ze sobą?", "opcje": ["Przez adres IP hosta", "Tylko przez volume", "Przez nazwę usługi, np. `db:5432`", "Przez `localhost` drugiego kontenera"], "poprawna": 2, "wyjasnienie": "Docker ma wbudowany DNS w sieciach użytkownika. Nazwa usługi rozwiązuje się na adres kontenera. `localhost` wskazuje na własny kontener."}
+{"id": "docker-112", "kategoria": "docker", "typ": "fiszka", "pytanie": "Czym kontener różni się od maszyny wirtualnej?", "odpowiedz": "Kontener współdzieli jądro hosta i izoluje procesy, więc jest lekki i szybko startuje. VM ma własny system operacyjny z jądrem na wirtualnym sprzęcie."}
+{"id": "docker-113", "kategoria": "docker", "typ": "wybor", "pytanie": "Czym w Kubernetes jest Deployment?", "opcje": ["Wirtualnym serwerem w chmurze", "Stałym adresem sieciowym dla podów", "Plikiem z hasłami", "Obiektem utrzymującym zadaną liczbę podów i aktualizującym je"], "poprawna": 3, "wyjasnienie": "Deployment opisuje stan docelowy (obraz, liczba replik) i dba o jego utrzymanie oraz o rolling update. Za stały adres odpowiada Service."}
+{"id": "docker-201", "kategoria": "docker", "typ": "fiszka", "pytanie": "Czym różni się `docker ps` od `docker ps -a`?", "odpowiedz": "`docker ps` pokazuje tylko działające kontenery, a `docker ps -a` także zatrzymane i zakończone (Exited). Przydatne, gdy kontener padł — potem `docker logs`."}
+{"id": "docker-202", "kategoria": "docker", "typ": "wybor", "pytanie": "Dlaczego na produkcji nie warto używać tagu `latest`?", "opcje": ["Rejestry prywatne blokują obrazy z tagiem `latest`", "To ruchomy tag — nie wiadomo, jaka wersja działa; rollback jest trudny", "Obrazy z `latest` nie mogą działać bez uprawnień roota", "Tag `latest` zawsze wskazuje na najstarszą wersję obrazu"], "poprawna": 1, "wyjasnienie": "Używaj jawnych, niezmiennych tagów (np. `1.4.2` lub hash commita). Wtedy wiadomo, co jest wdrożone, i łatwo wrócić do poprzedniej wersji."}
+{"id": "docker-203", "kategoria": "docker", "typ": "fiszka", "pytanie": "Jak wysłać własny obraz do rejestru (Docker Hub, GHCR) i pobrać go na serwerze?", "odpowiedz": "`docker login`, `docker tag app ghcr.io/user/app:1.2.0`, `docker push ghcr.io/user/app:1.2.0`. Na serwerze `docker pull` z pełną nazwą. Bez prefiksu domyślnie Docker Hub."}
+{"id": "docker-204", "kategoria": "docker", "typ": "fiszka", "pytanie": "Do czego służy instrukcja `HEALTHCHECK` w Dockerfile?", "odpowiedz": "Cyklicznie wykonuje komendę (np. `curl -f localhost/health`) i oznacza kontener jako `healthy` lub `unhealthy`. Sam działający proces nie znaczy, że aplikacja odpowiada."}
+{"id": "docker-205", "kategoria": "docker", "typ": "wybor", "pytanie": "Co robi polityka `--restart on-failure` w `docker run`?", "opcje": ["Restartuje kontener zawsze, także po ręcznym `docker stop`", "Restartuje kontener tylko, gdy nie przejdzie `HEALTHCHECK`", "Restartuje kontener co minutę, niezależnie od jego stanu", "Restartuje kontener tylko, gdy proces zakończył się kodem różnym od 0"], "poprawna": 3, "wyjasnienie": "Inne polityki: `no` (domyślna), `always`, `unless-stopped` (jak `always`, ale nie wstaje po ręcznym zatrzymaniu). Można dodać limit prób: `on-failure:5`."}
+{"id": "docker-206", "kategoria": "docker", "typ": "fiszka", "pytanie": "Jak przekazać zmienne środowiskowe do kontenera i czemu `--env-file` jest wygodny?", "odpowiedz": "`-e KEY=val` ustawia jedną zmienną, `--env-file .env` wczytuje wiele z pliku. Plik z sekretami trzymaj poza repo i obrazem: `.gitignore` oraz `.dockerignore`."}
+{"id": "docker-207", "kategoria": "docker", "typ": "fiszka", "pytanie": "Co usuwa `docker system prune` i na co trzeba uważać?", "odpowiedz": "Zatrzymane kontenery, nieużywane sieci, wiszące (dangling) obrazy i cache buildu. Z `-a` także nieużywane obrazy, z `--volumes` wolumeny — grozi utratą danych."}
+{"id": "docker-208", "kategoria": "docker", "typ": "wybor", "pytanie": "Dlaczego zaleca się jeden główny proces na kontener?", "opcje": ["Łatwiej skalować, czytać logi i restartować każdy komponent osobno", "Docker technicznie nie pozwala uruchomić dwóch procesów", "Kontener z wieloma procesami traci dostęp do sieci", "Każdy kontener ma limit jednego wątku CPU"], "poprawna": 0, "wyjasnienie": "Aplikacja, baza i cache w osobnych kontenerach można niezależnie wymieniać i skalować. Łączysz je np. w Docker Compose."}
+{"id": "docker-209", "kategoria": "docker", "typ": "fiszka", "pytanie": "Jak zmniejszyć rozmiar warstw w obrazie z aplikacją Pythona?", "odpowiedz": "W jednym `RUN`: `apt-get install ... && rm -rf /var/lib/apt/lists/*`; `pip install --no-cache-dir`; `COPY --chown=app:app` zamiast osobnego `RUN chown`, które dubluje pliki."}
+{"id": "docker-210", "kategoria": "docker", "typ": "wybor", "pytanie": "Co gwarantuje `depends_on` w Docker Compose (bez dodatkowych opcji)?", "opcje": ["Że baza już przyjmuje połączenia, zanim ruszy aplikacja", "Że kontener zostanie zrestartowany, gdy zależność padnie", "Tylko kolejność startu kontenerów, a nie gotowość usługi, np. bazy", "Że aplikacja poczeka na zakończenie migracji bazy"], "poprawna": 2, "wyjasnienie": "Na gotowość trzeba czekać jawnie: `healthcheck` w usłudze oraz `depends_on` z `condition: service_healthy`, albo ponawianie połączenia w aplikacji."}
+{"id": "kubernetes-201", "kategoria": "kubernetes", "typ": "fiszka", "pytanie": "Czym jest pod w Kubernetes?", "odpowiedz": "Najmniejsza jednostka uruchamiana w klastrze: jeden lub kilka ściśle powiązanych kontenerów ze wspólnym IP i wolumenami. Pody są nietrwałe — nowy pod dostaje nowy adres IP."}
+{"id": "kubernetes-202", "kategoria": "kubernetes", "typ": "fiszka", "pytanie": "Po co Deployment, skoro ReplicaSet już pilnuje liczby replik?", "odpowiedz": "ReplicaSet tylko utrzymuje N podów. Deployment zarządza ReplicaSetami między wersjami: robi rolling update i rollback. Dlatego zwykle tworzy się Deployment."}
+{"id": "kubernetes-203", "kategoria": "kubernetes", "typ": "wybor", "pytanie": "Który typ Service tworzy zewnętrzny load balancer u dostawcy chmury?", "opcje": ["`ClusterIP`", "`NodePort`", "`LoadBalancer`", "`ExternalName`"], "poprawna": 2, "wyjasnienie": "`ClusterIP` (domyślny) działa tylko w klastrze, `NodePort` otwiera port na każdym węźle, `LoadBalancer` dokłada zewnętrzny LB chmury."}
+{"id": "kubernetes-204", "kategoria": "kubernetes", "typ": "fiszka", "pytanie": "Czym jest Ingress i czego potrzebuje do działania?", "odpowiedz": "Obiekt z regułami routingu HTTP(S) z zewnątrz do Service'ów (host, ścieżka, TLS). Działa tylko z Ingress Controllerem w klastrze, np. NGINX."}
+{"id": "kubernetes-205", "kategoria": "kubernetes", "typ": "wybor", "pytanie": "Czym jest domyślnie zawartość obiektu Secret w Kubernetes?", "opcje": ["Zakodowana w base64 — to kodowanie, a nie szyfrowanie", "Zaszyfrowana AES-256 w każdym klastrze od razu", "Dostępna tylko dla jednego poda, nigdy dla innych", "Widoczna wyłącznie dla administratora klastra"], "poprawna": 0, "wyjasnienie": "Base64 odczyta każdy z dostępem do Secretu. Szyfrowanie at rest trzeba włączyć osobno, a dostęp ograniczyć przez RBAC. ConfigMap służy do danych niewrażliwych."}
+{"id": "kubernetes-206", "kategoria": "kubernetes", "typ": "fiszka", "pytanie": "Do czego służą namespace'y w Kubernetes?", "odpowiedz": "Dzielą klaster na logiczne grupy zasobów (np. `dev`, `prod`, zespoły). Nazwy muszą być unikalne tylko w obrębie namespace; można tam ustawiać quoty i RBAC."}
+{"id": "kubernetes-207", "kategoria": "kubernetes", "typ": "wybor", "pytanie": "Co się stanie, gdy `readinessProbe` poda zacznie zawodzić?", "opcje": ["Kubelet od razu restartuje kontener", "Deployment usuwa cały ReplicaSet", "Pod przenosi się do innego namespace'a", "Pod wypada z ruchu Service'u, ale nie jest restartowany"], "poprawna": 3, "wyjasnienie": "Restartem kończy się dopiero zawodząca `livenessProbe`. Readiness mówi „nie kieruj jeszcze ruchu”, np. podczas rozgrzewania aplikacji."}
+{"id": "kubernetes-208", "kategoria": "kubernetes", "typ": "fiszka", "pytanie": "Jakich trzech komend `kubectl` użyjesz do diagnozy zachowania poda?", "odpowiedz": "`kubectl get pods` — lista i status, `kubectl describe pod X` — szczegóły i Events, `kubectl logs X` — logi (`-f` śledzi, `--previous` z poprzedniej instancji)."}
+{"id": "kubernetes-209", "kategoria": "kubernetes", "typ": "fiszka", "pytanie": "Jak cofnąć nieudany rolling update Deploymentu `app`?", "odpowiedz": "`kubectl rollout undo deployment/app` wraca do poprzedniej rewizji, a `kubectl rollout status deployment/app` pokazuje postęp. Pody są wymieniane stopniowo, bez przestoju."}
+{"id": "kubernetes-210", "kategoria": "kubernetes", "typ": "wybor", "pytanie": "Co się dzieje, gdy kontener przekroczy `limits.memory`?", "opcje": ["Scheduler przenosi pod na mocniejszy węzeł", "Jest zabijany (OOMKilled) i zwykle restartowany", "Jest tylko spowalniany, jak przy limicie CPU", "Limit jest ignorowany, dopóki węzeł ma wolną pamięć"], "poprawna": 1, "wyjasnienie": "`requests` służą schedulerowi do wyboru węzła, `limits` to twardy sufit. Po przekroczeniu limitu CPU kontener jest tylko dławiony (throttling)."}
+{"id": "kubernetes-211", "kategoria": "kubernetes", "typ": "wybor", "pytanie": "Co oznacza status `CrashLoopBackOff` poda?", "opcje": ["Pod czeka na wolny węzeł w klastrze", "Nie można pobrać obrazu kontenera", "Kontener ciągle się wywala, a przerwy między restartami rosną", "Pod zakończył się poprawnie i czeka na usunięcie"], "poprawna": 2, "wyjasnienie": "Diagnoza: `kubectl logs --previous` i `kubectl describe pod`. Brak węzła to `Pending`, a błąd pobierania obrazu to `ImagePullBackOff`."}
+{"id": "kubernetes-212", "kategoria": "kubernetes", "typ": "fiszka", "pytanie": "Do czego służy Helm?", "odpowiedz": "Menedżer pakietów dla Kubernetes. Chart to szablony YAML z parametrami w `values.yaml`; `helm install` tworzy release, a `helm upgrade` i `helm rollback` zarządzają wersjami."}
+{"id": "linux-101", "kategoria": "linux", "typ": "fiszka", "pytanie": "Co oznacza `chmod 755 plik`?", "odpowiedz": "Właściciel ma `rwx` (7), grupa `r-x` (5), pozostali `r-x` (5). Wartości: r=4, w=2, x=1."}
+{"id": "linux-102", "kategoria": "linux", "typ": "wybor", "pytanie": "Czym różni się `SIGTERM` od `SIGKILL`?", "opcje": ["`SIGTERM` prosi o koniec (można go obsłużyć), `SIGKILL` wymusza", "Nie ma różnicy", "`SIGKILL` można przechwycić, `SIGTERM` nie", "`SIGTERM` działa tylko dla roota"], "poprawna": 0, "wyjasnienie": "`SIGTERM` (domyślny w `kill`) pozwala procesowi posprzątać. `SIGKILL` (`kill -9`) jest natychmiastowy i nie da się go przechwycić."}
+{"id": "linux-103", "kategoria": "linux", "typ": "fiszka", "pytanie": "Jak działa `sudo`?", "odpowiedz": "Pozwala uruchomić pojedynczą komendę z uprawnieniami innego użytkownika, zwykle roota, jeśli konfiguracja (`/etc/sudoers`) na to pozwala."}
+{"id": "linux-104", "kategoria": "linux", "typ": "fiszka", "pytanie": "Co robi `komenda > plik`, a co `komenda >> plik`?", "odpowiedz": "`>` nadpisuje plik wyjściem komendy, a `>>` dopisuje na końcu pliku."}
+{"id": "linux-105", "kategoria": "linux", "typ": "wybor", "pytanie": "Co robi `komenda > out.txt 2>&1`?", "opcje": ["Zapisuje do pliku tylko błędy", "Zapisuje do pliku stdout i stderr", "Wyświetla błędy na ekranie, a stdout w pliku", "Usuwa plik `out.txt`"], "poprawna": 1, "wyjasnienie": "Deskryptor 2 (stderr) jest przekierowany tam, gdzie 1 (stdout), czyli do pliku. Kolejność ma znaczenie."}
+{"id": "linux-106", "kategoria": "linux", "typ": "fiszka", "pytanie": "Do czego służy pipe `|`, np. w `ps aux | grep python`?", "odpowiedz": "Przekazuje wyjście (stdout) jednej komendy na wejście kolejnej. Tu `grep` filtruje listę procesów po słowie `python`."}
+{"id": "linux-107", "kategoria": "linux", "typ": "wybor", "pytanie": "Którą komendą znajdziesz pliki `*.log` w katalogu `/var/log`?", "opcje": ["`grep '*.log' /var/log`", "`ls -r /var/log *.log`", "`cat /var/log | find .log`", "`find /var/log -name '*.log'`"], "poprawna": 3, "wyjasnienie": "`find` przeszukuje drzewo katalogów po nazwie, rozmiarze itp. `grep` szuka tekstu wewnątrz plików."}
+{"id": "linux-108", "kategoria": "linux", "typ": "fiszka", "pytanie": "Czym jest zmienna `PATH`?", "odpowiedz": "Lista katalogów rozdzielona `:`, w których powłoka szuka programów uruchamianych bez pełnej ścieżki. Zobaczysz ją przez `echo $PATH`."}
+{"id": "linux-109", "kategoria": "linux", "typ": "fiszka", "pytanie": "Jak sprawdzić status usługi i jej logi w systemd?", "odpowiedz": "Status: `systemctl status nazwa`. Logi: `journalctl -u nazwa` (z `-f` na żywo). Start i restart: `systemctl start` oraz `systemctl restart`."}
+{"id": "linux-110", "kategoria": "linux", "typ": "wybor", "pytanie": "Którego klucza w parze kluczy SSH nigdy nie wolno udostępniać?", "opcje": ["Publicznego", "Obu można swobodnie udostępniać", "Prywatnego", "Żadnego, oba trafiają na serwer"], "poprawna": 2, "wyjasnienie": "Klucz publiczny (`.pub`) trafia do `~/.ssh/authorized_keys` na serwerze. Klucz prywatny zostaje tylko u Ciebie."}
+{"id": "linux-111", "kategoria": "linux", "typ": "fiszka", "pytanie": "Którą komendą sprawdzisz wolne miejsce na dysku, a którą pamięć RAM?", "odpowiedz": "Dysk: `df -h` (partycje) lub `du -sh katalog` (rozmiar katalogu). RAM: `free -h`."}
+{"id": "linux-112", "kategoria": "linux", "typ": "wybor", "pytanie": "Którą komendą sprawdzisz, jakie procesy nasłuchują na portach TCP?", "opcje": ["`ss -tlnp`", "`df -h`", "`chmod -l`", "`kill -p`"], "poprawna": 0, "wyjasnienie": "`ss -tlnp` pokazuje gniazda TCP w stanie listening (`-l`), numery portów (`-n`) i procesy (`-p`). Zastępuje starszy `netstat`."}
+{"id": "linux-113", "kategoria": "linux", "typ": "fiszka", "pytanie": "Co oznacza kod wyjścia `0` i jak go odczytać?", "odpowiedz": "`0` oznacza sukces, a wartość różna od zera błąd. Kod ostatniej komendy zobaczysz przez `echo $?`."}
+{"id": "linux-201", "kategoria": "linux", "typ": "fiszka", "pytanie": "Do czego służą `tail -f`, `head` i `less` przy pracy z plikiem logów?", "odpowiedz": "`tail -f` śledzi dopisywane linie na żywo, `head -n 20` pokazuje początek pliku, `less` przewija duży plik (`/szukaj`, `q` kończy) bez ładowania całości."}
+{"id": "linux-202", "kategoria": "linux", "typ": "wybor", "pytanie": "Co robi `grep -v error app.log`?", "opcje": ["Wypisuje linie z dokładnie jednym `error`", "Wypisuje linie z `error`, ignorując wielkość liter", "Wypisuje numery linii zawierających `error`", "Wypisuje linie, które NIE zawierają słowa `error`"], "poprawna": 3, "wyjasnienie": "`-i` ignoruje wielkość liter, `-n` dodaje numery linii, `-r` szuka rekurencyjnie w katalogach, np. `grep -rin error /var/log/app`."}
+{"id": "linux-203", "kategoria": "linux", "typ": "fiszka", "pytanie": "Jak wyciągnąć kolumnę z tekstu przez `cut` i `awk`?", "odpowiedz": "`cut -d: -f1 /etc/passwd` bierze 1. pole przy separatorze `:`. `awk '{print $2}' plik` wypisuje 2. kolumnę (domyślnie dzieli po białych znakach)."}
+{"id": "linux-204", "kategoria": "linux", "typ": "wybor", "pytanie": "Co robi `xargs` w `find . -name '*.tmp' | xargs rm`?", "opcje": ["Uruchamia `rm` równolegle na wszystkich dyskach", "Zamienia linie ze stdin na argumenty komendy `rm`", "Przekierowuje stderr z `find` do `rm`", "Pyta o potwierdzenie przy każdym pliku osobno"], "poprawna": 1, "wyjasnienie": "`rm` nie czyta nazw plików ze stdin. Przy spacjach w nazwach użyj `find -print0 | xargs -0 rm`."}
+{"id": "linux-205", "kategoria": "linux", "typ": "fiszka", "pytanie": "Jak spakować i rozpakować katalog do archiwum `.tar.gz`?", "odpowiedz": "`tar -czf backup.tar.gz katalog/` (c=create, z=gzip, f=plik). `tar -xzf backup.tar.gz` rozpakowuje (x=extract), `-C dir` wskazuje cel, `-t` tylko listuje zawartość."}
+{"id": "linux-206", "kategoria": "linux", "typ": "wybor", "pytanie": "Co stanie się z linkiem symbolicznym (`ln -s`) po usunięciu pliku docelowego?", "opcje": ["Plik zostanie automatycznie odtworzony z linku", "Link nadal działa, bo trzyma kopię danych", "Stanie się zepsuty (dangling) i będzie wskazywał w pustkę", "Link zostanie usunięty razem z plikiem"], "poprawna": 2, "wyjasnienie": "Hard link (`ln` bez `-s`) to druga nazwa tego samego inode — dane znikają po usunięciu ostatniej nazwy. Hard linki nie działają między systemami plików."}
+{"id": "linux-207", "kategoria": "linux", "typ": "fiszka", "pytanie": "Co robi `chown` i jak zmienić właściciela całego katalogu?", "odpowiedz": "`chown user:group plik` zmienia właściciela i grupę. `sudo chown -R www-data:www-data /var/www` robi to rekurencyjnie. Oddanie pliku komuś innemu wymaga roota."}
+{"id": "linux-208", "kategoria": "linux", "typ": "fiszka", "pytanie": "Do czego służą katalogi `/etc`, `/var/log`, `/home` i `/tmp`?", "odpowiedz": "`/etc` — konfiguracja systemu, `/var/log` — logi, `/home` — katalogi użytkowników, `/tmp` — pliki tymczasowe, czyszczone m.in. po restarcie. Dane aplikacji nie idą do `/tmp`."}
+{"id": "linux-209", "kategoria": "linux", "typ": "fiszka", "pytanie": "Jak uruchomić proces w tle i sprawić, by przeżył zamknięcie terminala?", "odpowiedz": "`komenda &` uruchamia w tle; `Ctrl+Z` zatrzymuje, `bg` wznawia w tle, `fg` wraca na pierwszy plan. `nohup komenda &` ignoruje SIGHUP po zamknięciu terminala."}
+{"id": "linux-210", "kategoria": "linux", "typ": "wybor", "pytanie": "Co oznacza load average `4.0` w `top` na maszynie z 4 rdzeniami?", "opcje": ["Rdzenie są średnio w pełni zajęte — jesteś na granicy saturacji", "System używa 4% procesora", "W kolejce czeka 4 GB danych do zapisu", "W systemie działają dokładnie 4 procesy"], "poprawna": 0, "wyjasnienie": "Load average to średnia liczba procesów działających lub czekających na CPU (w Linuksie też na I/O), podawana z 1, 5 i 15 minut. Porównuj ją z liczbą rdzeni."}
+{"id": "linux-211", "kategoria": "linux", "typ": "fiszka", "pytanie": "Co robi `set -e` w skrypcie bash i co dodaje `set -euo pipefail`?", "odpowiedz": "`set -e` przerywa skrypt przy pierwszej komendzie z kodem ≠ 0. `-u` traktuje niezdefiniowaną zmienną jako błąd, `-o pipefail` łapie błąd w dowolnym ogniwie potoku."}
+{"id": "linux-212", "kategoria": "linux", "typ": "wybor", "pytanie": "Ile plików utworzy w bashu `name=\"my file\"; touch $name` (bez cudzysłowów)?", "opcje": ["Jeden: `my file`", "Dwa: `my` i `file`", "Żaden — touch odrzuci spację w nazwie", "Trzy: `my`, spację i `file`"], "poprawna": 1, "wyjasnienie": "Bash dzieli niecytowaną zmienną na słowa. `touch \"$name\"` utworzy jeden plik `my file`. Zawsze cytuj zmienne: `\"$var\"`."}
+{"id": "cicd-101", "kategoria": "cicd", "typ": "fiszka", "pytanie": "Czym różni się Continuous Delivery od Continuous Deployment?", "odpowiedz": "W Delivery każda zmiana jest gotowa do wdrożenia, ale wdrożenie zatwierdza człowiek. W Deployment przechodzi na produkcję automatycznie, jeśli testy przejdą."}
+{"id": "cicd-102", "kategoria": "cicd", "typ": "wybor", "pytanie": "Co jest głównym celem Continuous Integration?", "opcje": ["Automatyczne wdrażanie na produkcję", "Częste scalanie zmian i automatyczne budowanie oraz testowanie", "Monitorowanie serwerów", "Zarządzanie kosztami chmury"], "poprawna": 1, "wyjasnienie": "CI wykrywa błędy integracji szybko: każdy push uruchamia build i testy."}
+{"id": "cicd-103", "kategoria": "cicd", "typ": "fiszka", "pytanie": "Wymień typowe etapy pipeline CI/CD.", "odpowiedz": "Checkout kodu, build, testy (w tym lint), publikacja artefaktu lub obrazu, wdrożenie na środowisko (staging, potem produkcja)."}
+{"id": "cicd-104", "kategoria": "cicd", "typ": "fiszka", "pytanie": "Jak w GitHub Actions nazywają się: workflow, job, step, runner?", "odpowiedz": "Workflow to plik YAML w `.github/workflows`. Job to zestaw kroków na jednym runnerze. Step to pojedyncze polecenie lub akcja. Runner to maszyna wykonująca job."}
+{"id": "cicd-105", "kategoria": "cicd", "typ": "wybor", "pytanie": "Gdzie w CI/CD przechowuje się hasła i tokeny API?", "opcje": ["W pliku `.env` w repozytorium", "W kodzie jako stałe", "W mechanizmie sekretów platformy CI", "W README"], "poprawna": 2, "wyjasnienie": "Sekrety trzyma się w zaszyfrowanym magazynie CI (np. GitHub Secrets) i podaje jako zmienne środowiskowe. W repozytorium zostają na zawsze w historii."}
+{"id": "cicd-106", "kategoria": "cicd", "typ": "fiszka", "pytanie": "Czym jest artefakt w pipeline CI/CD?", "odpowiedz": "Plik będący wynikiem etapu, np. paczka, obraz Docker czy raport z testów. Zapisuje się go i przekazuje do kolejnych etapów, by wdrażać dokładnie to, co przetestowano."}
+{"id": "cicd-107", "kategoria": "cicd", "typ": "wybor", "pytanie": "Na czym polega wdrożenie blue-green?", "opcje": ["Wymiana instancji po kolei, po kilka naraz", "Nowa wersja dla małego procenta użytkowników", "Wdrożenie tylko nocą", "Dwa pełne środowiska, ruch przełączany ze starego na nowe"], "poprawna": 3, "wyjasnienie": "Nową wersję stawia się obok działającej, a po sprawdzeniu przełącza ruch. Rollback to przełączenie z powrotem. Wariant z małym procentem użytkowników to canary."}
+{"id": "cicd-108", "kategoria": "cicd", "typ": "fiszka", "pytanie": "Czym różni się rolling update od canary?", "odpowiedz": "Rolling stopniowo wymienia wszystkie instancje na nową wersję. Canary kieruje nową wersję tylko do małej części ruchu i obserwuje, zanim wdroży ją szerzej."}
+{"id": "cicd-109", "kategoria": "cicd", "typ": "fiszka", "pytanie": "Co to Infrastructure as Code i czym jest podejście deklaratywne (Terraform)?", "odpowiedz": "Infrastrukturę opisuje się w kodzie w repozytorium. W podejściu deklaratywnym podajesz stan docelowy, a narzędzie, np. Terraform, samo wylicza potrzebne zmiany."}
+{"id": "cicd-110", "kategoria": "cicd", "typ": "wybor", "pytanie": "Do czego służy Ansible?", "opcje": ["Do budowania obrazów Docker", "Do zarządzania konfiguracją serwerów przez playbooki, zwykle przez SSH", "Do zbierania metryk", "Do hostowania kodu"], "poprawna": 1, "wyjasnienie": "Ansible opisuje stan serwerów w playbookach YAML i stosuje go na hostach, zwykle bez agenta, przez SSH."}
+{"id": "cicd-111", "kategoria": "cicd", "typ": "fiszka", "pytanie": "Czym różnią się monitoring, logowanie i alerting?", "odpowiedz": "Monitoring zbiera metryki i pokazuje stan systemu. Logi to zapis zdarzeń do analizy przyczyn. Alerting powiadamia ludzi, gdy metryka przekroczy próg."}
+{"id": "cicd-112", "kategoria": "cicd", "typ": "wybor", "pytanie": "Co według zasad 12-factor app powinno trafiać do zmiennych środowiskowych?", "opcje": ["Konfiguracja zależna od środowiska, np. adres bazy i klucze", "Cały kod aplikacji", "Logi aplikacji", "Zależności aplikacji"], "poprawna": 0, "wyjasnienie": "Konfiguracja (adresy, hasła) różni się między środowiskami, więc jest oddzielona od kodu. Ten sam kod działa wszędzie."}
+{"id": "cicd-201", "kategoria": "cicd", "typ": "fiszka", "pytanie": "Czym różni się `on: push` od `on: pull_request` w GitHub Actions?", "odpowiedz": "`push` uruchamia workflow po wypchnięciu commitów (można filtrować `branches: [main]`). `pull_request` działa przy otwarciu/aktualizacji PR — testy przed merge'em."}
+{"id": "cicd-202", "kategoria": "cicd", "typ": "wybor", "pytanie": "Do czego służy `strategy.matrix` w GitHub Actions?", "opcje": ["Do przechowywania sekretów w formie tabeli", "Do ustalania kolejności jobów w pipeline", "Do uruchomienia jobu dla kombinacji parametrów, np. wersji Pythona", "Do cache'owania zależności między uruchomieniami"], "poprawna": 2, "wyjasnienie": "Np. `python-version: [\"3.11\", \"3.12\"]` utworzy dwa joby. Pozwala sprawdzić kod na wielu wersjach lub systemach bez kopiowania konfiguracji."}
+{"id": "cicd-203", "kategoria": "cicd", "typ": "fiszka", "pytanie": "Jak przyspieszyć pipeline przez cache zależności i jak działa klucz cache?", "odpowiedz": "`actions/cache` lub `cache: pip` w `setup-python` zapisuje zależności między runami. Klucz to zwykle hash `requirements.txt`; zmiana pliku daje nowy klucz i świeży cache."}
+{"id": "cicd-204", "kategoria": "cicd", "typ": "fiszka", "pytanie": "Jakie kontrole jakości kodu Pythona warto uruchamiać w CI?", "odpowiedz": "`ruff check .` (lub `flake8`) dla stylu i prostych błędów, `mypy .` dla typów, `pytest` dla testów. Kod wyjścia ≠ 0 czerwieni pipeline i blokuje merge."}
+{"id": "cicd-205", "kategoria": "cicd", "typ": "wybor", "pytanie": "Do czego służą environments (staging/prod) z approvals w GitHub Actions?", "opcje": ["Pozwalają uruchamiać joby tylko na runnerach z GPU", "Automatycznie tworzą osobny klaster Kubernetes", "Zastępują testy przed wdrożeniem", "Deploy czeka na ręczną akceptację i używa własnych sekretów"], "poprawna": 3, "wyjasnienie": "Można wymagać zatwierdzenia przez wskazane osoby przed deployem na prod. Sekrety i zmienne przypisane do środowiska nie są widoczne w innych."}
+{"id": "cicd-206", "kategoria": "cicd", "typ": "fiszka", "pytanie": "Na czym polega GitOps i jaką rolę ma Argo CD?", "odpowiedz": "Git jest jedynym źródłem prawdy o stanie wdrożenia. Argo CD w klastrze porównuje repo z klastrem i go synchronizuje (pull). Zmiana to commit/PR, rollback to revert."}
+{"id": "cicd-207", "kategoria": "cicd", "typ": "wybor", "pytanie": "Co oznacza podbicie wersji z `2.4.1` do `3.0.0` w semantic versioning?", "opcje": ["Zmiany łamiące zgodność wsteczną (podbicie MAJOR)", "Tylko poprawki błędów bez nowych funkcji", "Nowe funkcje zgodne wstecznie", "Zmianę wyłącznie w dokumentacji"], "poprawna": 0, "wyjasnienie": "Format `MAJOR.MINOR.PATCH`: MAJOR — zmiany niezgodne, MINOR — nowe funkcje zgodne wstecznie, PATCH — poprawki błędów."}
+{"id": "cicd-208", "kategoria": "cicd", "typ": "fiszka", "pytanie": "Czym są feature flags i po co się je stosuje?", "odpowiedz": "Przełącznik w konfiguracji, który włącza lub wyłącza funkcję bez nowego deployu. Pozwala wdrażać niedokończony kod wyłączony, robić stopniowy rollout i szybko wyłączyć błędną funkcję."}
+{"id": "cicd-209", "kategoria": "cicd", "typ": "fiszka", "pytanie": "Dlaczego pipeline powinien być szybki i „fail fast”?", "odpowiedz": "Szybki feedback skraca pętlę pracy. Fail fast: najtańsze kroki (lint, unit testy) idą pierwsze i przerywają run przy błędzie, a wolne testy i deploy dopiero potem."}
+{"id": "cicd-210", "kategoria": "cicd", "typ": "wybor", "pytanie": "Co oznacza zasada „build once, deploy many”?", "opcje": ["Każde środowisko buduje własny obraz z tego samego commita", "Ten sam obraz trafia na staging i prod, różni się tylko konfiguracja", "Obraz buduje się raz na rok i wdraża wszędzie", "Jeden build wdraża się na jednym serwerze naraz"], "poprawna": 1, "wyjasnienie": "Na prod trafia dokładnie to, co przetestowano na staging. Konfigurację (zmienne środowiskowe, sekrety) wstrzykuje się przy wdrożeniu."}
+{"id": "siec-201", "kategoria": "siec", "typ": "fiszka", "pytanie": "TCP a UDP – czym się różnią? Podaj po jednym zastosowaniu.", "odpowiedz": "TCP: połączenie, potwierdzenia, retransmisje, kolejność (HTTP, SSH, bazy). UDP: bez połączenia i gwarancji, szybszy (DNS, wideo na żywo, gry)."}
+{"id": "siec-202", "kategoria": "siec", "typ": "wybor", "pytanie": "Jak wygląda kolejność pakietów w trójstopniowym uzgadnianiu TCP?", "opcje": ["SYN → ACK → SYN-ACK", "ACK → SYN → FIN", "SYN → SYN-ACK → ACK", "SYN → SYN → ACK"], "poprawna": 2, "wyjasnienie": "Klient wysyła SYN, serwer odpowiada SYN-ACK, klient kończy ACK – dopiero wtedy można słać dane."}
+{"id": "siec-203", "kategoria": "siec", "typ": "fiszka", "pytanie": "W której warstwie modelu TCP/IP działają HTTP, TCP i IP? Czym różni się to od OSI?", "odpowiedz": "HTTP – warstwa aplikacji, TCP – transportowa, IP – internetowa. TCP/IP ma 4 warstwy, OSI 7: tam IP to warstwa 3, TCP – 4, HTTP – 7."}
+{"id": "siec-204", "kategoria": "siec", "typ": "fiszka", "pytanie": "Czym jest adres IP, a czym port? Jak razem identyfikują usługę?", "odpowiedz": "IP wskazuje maszynę (interfejs) w sieci, port (0–65535) konkretną aplikację na niej. Połączenie to para IP:port po obu stronach, np. `203.0.113.5:443`."}
+{"id": "siec-205", "kategoria": "siec", "typ": "fiszka", "pytanie": "Jakie są prywatne zakresy IPv4 i do czego służy NAT?", "odpowiedz": "`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`. NAT w routerze podmienia adres prywatny na publiczny, więc wiele urządzeń dzieli jeden publiczny IP."}
+{"id": "siec-206", "kategoria": "siec", "typ": "wybor", "pytanie": "Ile adresów IPv4 obejmuje sieć o masce `/24`?", "opcje": ["256", "24", "255", "65 536"], "poprawna": 0, "wyjasnienie": "Zostaje 32−24 = 8 bitów na hosty, czyli 2^8 = 256 adresów (z czego 254 dla hostów: sieć i broadcast są zajęte)."}
+{"id": "siec-207", "kategoria": "siec", "typ": "fiszka", "pytanie": "Do czego służą rekordy DNS: A, AAAA, CNAME, MX, TXT?", "odpowiedz": "A – nazwa → IPv4, AAAA – → IPv6, CNAME – alias na inną nazwę, MX – serwery poczty domeny, TXT – dowolny tekst (np. SPF, weryfikacja domeny)."}
+{"id": "siec-208", "kategoria": "siec", "typ": "wybor", "pytanie": "Co oznacza TTL rekordu DNS?", "opcje": ["Maksymalną liczbę przeskoków pakietu", "Czas ważności domeny u rejestratora", "Czas odpowiedzi serwera DNS", "Jak długo resolver może trzymać odpowiedź w cache"], "poprawna": 3, "wyjasnienie": "Niski TTL przyspiesza propagację zmiany IP, ale zwiększa liczbę zapytań. Nie mylić z TTL pakietu IP."}
+{"id": "siec-209", "kategoria": "siec", "typ": "wybor", "pytanie": "Na którym domyślnym porcie nasłuchuje PostgreSQL?", "opcje": ["3306", "5432", "6379", "1433"], "poprawna": 1, "wyjasnienie": "PostgreSQL – 5432, MySQL – 3306, Redis – 6379. Dodatkowo: SSH – 22, HTTP – 80, HTTPS – 443."}
+{"id": "siec-210", "kategoria": "siec", "typ": "wybor", "pytanie": "Czym load balancer L7 różni się od L4?", "opcje": ["L7 działa tylko na UDP", "L7 rozumie HTTP i może routować po ścieżce, nagłówku czy ciasteczku", "L4 szyfruje ruch, a L7 nie", "L4 odczytuje URL i nagłówki HTTP"], "poprawna": 1, "wyjasnienie": "L4 balansuje po IP i porcie (szybciej, bez parsowania), L7 widzi treść żądania HTTP, więc routuje inteligentniej."}
+{"id": "siec-211", "kategoria": "siec", "typ": "fiszka", "pytanie": "Reverse proxy a forward proxy – czym się różnią?", "odpowiedz": "Forward proxy stoi po stronie klientów i wychodzi za nich do internetu. Reverse proxy stoi przed serwerami i przyjmuje ruch w ich imieniu (np. nginx, TLS, cache)."}
+{"id": "siec-212", "kategoria": "siec", "typ": "fiszka", "pytanie": "Jak działają `ping` i `traceroute`?", "odpowiedz": "`ping` wysyła ICMP echo request i mierzy RTT oraz straty. `traceroute` zwiększa TTL pakietów, by poznać kolejne routery na trasie do celu."}
+{"id": "siec-213", "kategoria": "siec", "typ": "wybor", "pytanie": "Aplikacja w kontenerze nasłuchuje na `127.0.0.1:8000`. Dlaczego `-p 8000:8000` nie działa?", "opcje": ["Port 8000 jest zarezerwowany przez Dockera", "`-p` działa wyłącznie dla UDP", "Kontenery nie obsługują `localhost`", "`127.0.0.1` jest widoczny tylko w kontenerze – trzeba `0.0.0.0`"], "poprawna": 3, "wyjasnienie": "`0.0.0.0` oznacza wszystkie interfejsy. Dev-serwery typu `uvicorn` czy `flask` w kontenerze uruchamiaj z `--host 0.0.0.0`."}
+{"id": "siec-214", "kategoria": "siec", "typ": "fiszka", "pytanie": "Co robi CDN i kiedy się przydaje?", "odpowiedz": "Rozproszona sieć serwerów brzegowych cache'uje treści blisko użytkownika (statyki, obrazy, wideo). Zmniejsza opóźnienia i odciąża serwer źródłowy."}
+{"id": "siec-215", "kategoria": "siec", "typ": "fiszka", "pytanie": "IPv4 a IPv6 – najważniejsze różnice?", "odpowiedz": "IPv4: 32 bity (~4,3 mld adresów, stąd NAT). IPv6: 128 bitów zapisane szesnastkowo, np. `2001:db8::1`, praktycznie nieograniczona pula, bez potrzeby NAT."}
+{"id": "chmura-201", "kategoria": "chmura", "typ": "fiszka", "pytanie": "IaaS, PaaS, SaaS – czym się różnią? Podaj po przykładzie.", "odpowiedz": "IaaS: wirtualne maszyny i sieć, resztę zarządzasz sam (EC2). PaaS: wdrażasz kod, platforma robi resztę (Heroku). SaaS: gotowa aplikacja (Gmail)."}
+{"id": "chmura-202", "kategoria": "chmura", "typ": "wybor", "pytanie": "Czym jest availability zone (AZ) względem regionu?", "opcje": ["Izolowanym centrum danych w regionie, niezależnym od awarii innych AZ", "Osobnym kontynentem z własną siecią", "Regionem o niższych cenach", "Kopią zapasową całego regionu"], "poprawna": 0, "wyjasnienie": "Region to obszar geograficzny, a AZ-ty w nim są połączone szybką siecią. Rozłożenie aplikacji na kilka AZ chroni przed awarią jednego."}
+{"id": "chmura-203", "kategoria": "chmura", "typ": "fiszka", "pytanie": "Do czego służą w AWS: EC2, S3, RDS i Lambda?", "odpowiedz": "EC2 – maszyny wirtualne, S3 – magazyn obiektów, RDS – zarządzane bazy relacyjne, Lambda – funkcje uruchamiane na zdarzenia (serverless)."}
+{"id": "chmura-204", "kategoria": "chmura", "typ": "fiszka", "pytanie": "Czym są w AWS IAM i VPC?", "odpowiedz": "IAM – użytkownicy, role i polityki określające, kto co może zrobić. VPC – prywatna, wirtualna sieć z podsieciami, trasami i regułami dostępu."}
+{"id": "chmura-205", "kategoria": "chmura", "typ": "wybor", "pytanie": "Do czego lepiej użyć object storage (np. S3), a do czego block storage (np. EBS)?", "opcje": ["Obiekty: dysk systemowy VM. Blokowy: zdjęcia", "Obiekty: bazy transakcyjne. Blokowy: logi", "Obiekty: pliki i backupy. Blokowy: dysk VM lub bazy", "Są zamienne, różnią się tylko ceną"], "poprawna": 2, "wyjasnienie": "S3 dostępny jest przez API HTTP, skaluje się niemal bez limitu. Blokowy działa jak dysk podłączony do jednej maszyny, z niskim opóźnieniem."}
+{"id": "chmura-206", "kategoria": "chmura", "typ": "fiszka", "pytanie": "Skalowanie horyzontalne a wertykalne – różnica i ograniczenia?", "odpowiedz": "Wertykalne: mocniejsza maszyna (limit sprzętu, często restart). Horyzontalne: więcej instancji za load balancerem – lepsze, ale wymaga bezstanowej aplikacji."}
+{"id": "chmura-207", "kategoria": "chmura", "typ": "wybor", "pytanie": "Co robi autoscaling?", "opcje": ["Zwiększa moc CPU działającej maszyny bez restartu", "Kopiuje dane między regionami", "Dodaje i usuwa instancje wg metryk, np. CPU czy liczby żądań", "Przepisuje kod na wydajniejszy"], "poprawna": 2, "wyjasnienie": "Reguły (np. CPU > 70%) dodają instancje przy szczycie i usuwają przy spadku ruchu, co oszczędza koszty."}
+{"id": "chmura-208", "kategoria": "chmura", "typ": "fiszka", "pytanie": "Zarządzana baza danych (np. RDS) – plusy i minusy względem własnej na VM?", "odpowiedz": "Plusy: backupy, aktualizacje, replikacja, failover bez Twojej pracy. Minusy: wyższy koszt, mniej kontroli nad konfiguracją, uzależnienie od dostawcy."}
+{"id": "chmura-209", "kategoria": "chmura", "typ": "wybor", "pytanie": "Co oznacza model współdzielonej odpowiedzialności (shared responsibility)?", "opcje": ["Dostawca chroni infrastrukturę, klient – dane, konfigurację i dostępy", "Dostawca odpowiada za całe bezpieczeństwo aplikacji", "Klient odpowiada za fizyczne centra danych", "Odpowiedzialność ponoszą wyłącznie użytkownicy końcowi"], "poprawna": 0, "wyjasnienie": "Przykład: AWS dba o serwerownie, ale publicznie otwarty bucket S3 czy zbyt szerokie uprawnienia IAM to wina klienta."}
+{"id": "chmura-210", "kategoria": "chmura", "typ": "fiszka", "pytanie": "Jak kontrolować koszty w chmurze (pay-as-you-go)?", "odpowiedz": "Wyłączaj nieużywane zasoby (VM, dyski, IP), dobieraj rozmiary, ustaw budżety i alerty kosztowe, otaguj zasoby. Płacisz za czas i użycie."}
+{"id": "chmura-211", "kategoria": "chmura", "typ": "fiszka", "pytanie": "Dlaczego usługi przeznaczone do skalowania powinny być bezstanowe?", "odpowiedz": "Dowolna instancja może obsłużyć dowolne żądanie, więc łatwo dodawać i usuwać kopie. Stan trzymaj w bazie, cache (Redis) lub S3, nie w pamięci czy na dysku instancji."}
+{"id": "chmura-212", "kategoria": "chmura", "typ": "wybor", "pytanie": "Co jest typową cechą funkcji serverless, np. AWS Lambda?", "opcje": ["Masz stały dostęp SSH do serwera", "Funkcja działa bez limitu czasu", "Płacisz stałą opłatę niezależnie od użycia", "Płacisz za wykonania, serwery obsługuje dostawca; bywa cold start"], "poprawna": 3, "wyjasnienie": "Serwery nadal istnieją, ale ich nie zarządzasz. Pierwsze wywołanie po bezczynności może być wolniejsze (cold start), a czas wykonania ma limit."}
+{"id": "bezpieczenstwo-201", "kategoria": "bezpieczenstwo", "typ": "wybor", "pytanie": "Który zapis hasła jest hashem, czyli nie da się go po prostu odwrócić?", "opcje": ["Base64 hasła", "SHA-256 hasła", "AES-256 hasła z kluczem", "Hasło zapisane jako hex"], "poprawna": 1, "wyjasnienie": "Hash jest jednokierunkowy (do haseł i tak bierz wolny: bcrypt, argon2). Szyfr odwraca się kluczem, a kodowanie każdy: `c2VjcmV0` to po prostu `secret`."}
+{"id": "bezpieczenstwo-202", "kategoria": "bezpieczenstwo", "typ": "fiszka", "pytanie": "Szyfrowanie symetryczne a asymetryczne – różnica i przykłady?", "odpowiedz": "Symetryczne: jeden klucz do szyfrowania i deszyfrowania, szybkie (AES). Asymetryczne: para kluczy publiczny/prywatny, wolniejsze (RSA, ECC)."}
+{"id": "bezpieczenstwo-203", "kategoria": "bezpieczenstwo", "typ": "wybor", "pytanie": "Co ustala handshake TLS, zanim popłyną dane aplikacji?", "opcje": ["Szyfruje dane wyłącznie kluczem publicznym serwera", "Weryfikuje certyfikat, uzgadnia klucz, dalej szyfr symetryczny", "Przesyła hasło użytkownika do weryfikacji", "Wymienia certyfikat klienta zamiast serwera"], "poprawna": 1, "wyjasnienie": "Kryptografia asymetryczna służy tylko do uwierzytelnienia i wymiany kluczy. Dane szyfruje szybki szyfr symetryczny (np. AES)."}
+{"id": "bezpieczenstwo-204", "kategoria": "bezpieczenstwo", "typ": "fiszka", "pytanie": "Czym jest certyfikat TLS i łańcuch zaufania CA?", "odpowiedz": "Certyfikat wiąże domenę z kluczem publicznym i jest podpisany przez CA. Łańcuch: serwer → pośredni CA → root CA zaufany w systemie lub przeglądarce."}
+{"id": "bezpieczenstwo-205", "kategoria": "bezpieczenstwo", "typ": "fiszka", "pytanie": "Czym jest sól (salt) w haszowaniu haseł i po co się ją stosuje?", "odpowiedz": "Losowa wartość dodawana do hasła przed hashowaniem, osobna dla użytkownika. Dwa takie same hasła dają różne hashe, a tęczowe tablice przestają działać."}
+{"id": "bezpieczenstwo-206", "kategoria": "bezpieczenstwo", "typ": "fiszka", "pytanie": "Czym jest OWASP Top 10 i na czym polega IDOR jako broken access control?", "odpowiedz": "Lista najczęstszych ryzyk bezpieczeństwa aplikacji webowych. IDOR: zmieniasz `/orders/5` na `/orders/6` i widzisz cudzy zasób, bo serwer nie sprawdza właściciela."}
+{"id": "bezpieczenstwo-207", "kategoria": "bezpieczenstwo", "typ": "wybor", "pytanie": "Na czym polega zasada najmniejszych uprawnień (least privilege)?", "opcje": ["Każdy użytkownik dostaje rolę admina na czas pracy", "Uprawnienia ma tylko pierwszy zalogowany użytkownik", "Hasła muszą mieć minimalną długość", "Konto dostaje tylko uprawnienia niezbędne do zadania"], "poprawna": 3, "wyjasnienie": "Ogranicza skutki włamania lub błędu. Przykład: aplikacja łączy się z bazą użytkownikiem bez prawa `DROP`, a rola IAM ma dostęp tylko do jednego bucketu."}
+{"id": "bezpieczenstwo-208", "kategoria": "bezpieczenstwo", "typ": "wybor", "pytanie": "Co poprawia uwierzytelnianie wieloskładnikowe (MFA)?", "opcje": ["Samo hasło nie wystarcza – potrzebny drugi czynnik, np. kod TOTP", "Szyfruje hasło silniejszym algorytmem", "Zastępuje potrzebę HTTPS", "Uniemożliwia atak brute force całkowicie"], "poprawna": 0, "wyjasnienie": "Czynniki: coś wiesz (hasło), coś masz (telefon, klucz FIDO), czym jesteś (biometria). Wyciek hasła sam nie wystarcza do logowania."}
+{"id": "bezpieczenstwo-209", "kategoria": "bezpieczenstwo", "typ": "fiszka", "pytanie": "Jakie są typowe pułapki JWT?", "odpowiedz": "`alg: none` lub niezweryfikowany podpis. Payload to tylko Base64 – widzi go każdy, więc nie wkładaj tam sekretów. Brak wygaśnięcia (`exp`) i słaby klucz HMAC."}
+{"id": "bezpieczenstwo-210", "kategoria": "bezpieczenstwo", "typ": "fiszka", "pytanie": "Jak wykrywać podatne zależności w projekcie Python?", "odpowiedz": "`pip-audit` sprawdza zainstalowane pakiety w bazie znanych podatności. Dependabot automatycznie otwiera PR-y z aktualizacjami. Warto uruchamiać to w CI."}
+{"id": "bezpieczenstwo-211", "kategoria": "bezpieczenstwo", "typ": "wybor", "pytanie": "Do repozytorium trafił klucz API. Co zrobić w pierwszej kolejności?", "opcje": ["Tylko usunąć plik kolejnym commitem", "Zrobić repozytorium prywatnym i na tym skończyć", "Unieważnić i wygenerować nowy klucz (rotacja), potem posprzątać repo", "Czekać, aż ktoś go nadużyje"], "poprawna": 2, "wyjasnienie": "Klucz zostaje w historii gita i mógł zostać zeskanowany przez boty. Dopiero rotacja go unieważnia. Warto dodać skaner sekretów (np. gitleaks)."}
+{"id": "bezpieczenstwo-212", "kategoria": "bezpieczenstwo", "typ": "wybor", "pytanie": "Czym różni się walidacja wejścia od kodowania wyjścia (output encoding)?", "opcje": ["To dwie nazwy tej samej techniki", "Walidacja działa tylko w przeglądarce", "Walidacja odrzuca złe dane na wejściu, kodowanie escapuje na wyjściu", "Kodowanie wyjścia zastępuje walidację na serwerze"], "poprawna": 2, "wyjasnienie": "Obie warstwy się uzupełniają: walidacja ogranicza dane, a escapowanie dla kontekstu (HTML, SQL, URL) realnie chroni przed XSS i injection."}
+{"id": "bezpieczenstwo-213", "kategoria": "bezpieczenstwo", "typ": "fiszka", "pytanie": "Jak chronić formularz logowania przed brute force?", "odpowiedz": "Rate limiting na IP i konto, blokada lub rosnące opóźnienie po nieudanych próbach, CAPTCHA, MFA oraz wolny hash haseł (bcrypt, argon2)."}
+{"id": "bezpieczenstwo-214", "kategoria": "bezpieczenstwo", "typ": "fiszka", "pytanie": "Dlaczego RSA i ECC są zagrożone przez komputery kwantowe?", "odpowiedz": "Algorytm Shora na komputerze kwantowym szybko rozkłada liczby na czynniki i liczy logarytm dyskretny, więc łamie RSA i ECC. AES-256 się trzyma: Grover tylko o połowę obniża jego siłę."}
+{"id": "bezpieczenstwo-215", "kategoria": "bezpieczenstwo", "typ": "wybor", "pytanie": "Które algorytmy NIST ustandaryzował jako postkwantowe (PQC)?", "opcje": ["ML-KEM (wymiana kluczy) i ML-DSA (podpisy)", "AES-256 i SHA-3", "RSA-4096 i ECDSA", "Argon2 i bcrypt"], "poprawna": 0, "wyjasnienie": "ML-KEM (dawniej Kyber) i ML-DSA (Dilithium) opierają się na kratach. Ważne też dziś ze względu na atak „harvest now, decrypt later”."}
+{"id": "miekkie-001", "kategoria": "miekkie", "typ": "fiszka", "pytanie": "Opowiedz o błędzie, z którego coś wyniosłeś.", "odpowiedz": "Schemat STAR: sytuacja, zadanie, działanie, rezultat. Jeden konkretny przykład, na końcu czego się nauczyłeś. Do dwóch minut."}
+{"id": "miekkie-101", "kategoria": "miekkie", "typ": "fiszka", "pytanie": "Jak odpowiedzieć na „Opowiedz o sobie”?", "odpowiedz": "Max 1-2 min: kim jesteś (studia), czego się uczysz i jaki projekt zrobiłeś, czemu ta rola. Struktura: teraźniejszość, przeszłość, cel. Nie recytuj CV, mów o tym, co pasuje do oferty."}
+{"id": "miekkie-102", "kategoria": "miekkie", "typ": "fiszka", "pytanie": "Jak odpowiedzieć na „Dlaczego chcesz pracować właśnie u nas?”", "odpowiedz": "Pokaż, że poznałeś firmę: produkt, stack, kulturę. Połącz to ze swoimi celami i umiejętnościami. Unikaj ogólników typu „bo to duża firma”. Konkret = zaangażowanie."}
+{"id": "miekkie-103", "kategoria": "miekkie", "typ": "fiszka", "pytanie": "Jak odpowiedzieć na „Dlaczego mamy zatrudnić właśnie Ciebie?”", "odpowiedz": "Połącz 2-3 swoje atuty z potrzebami z oferty, poparte przykładem (projekt, staż). Podkreśl chęć nauki i zaangażowanie. Bez porównywania się z innymi i bez arogancji."}
+{"id": "miekkie-104", "kategoria": "miekkie", "typ": "fiszka", "pytanie": "Jak odpowiedzieć na „Jaka jest Twoja największa słabość?”", "odpowiedz": "Wybierz prawdziwą, niekrytyczną dla roli słabość i pokaż, jak nad nią pracujesz (np. perfekcjonizm i limit czasu). Unikaj „jestem pracoholikiem” i „nie mam słabości”."}
+{"id": "miekkie-105", "kategoria": "miekkie", "typ": "fiszka", "pytanie": "Jak odpowiedzieć na pytanie o konflikt w zespole?", "odpowiedz": "Użyj STAR: opisz konkretną sytuację, swoją rolę i rozmowę z drugą stroną. Pokaż empatię i szukanie kompromisu, a skończ rezultatem. Nie obwiniaj nikogo z imienia."}
+{"id": "miekkie-106", "kategoria": "miekkie", "typ": "fiszka", "pytanie": "Jak opowiedzieć o projekcie, z którego jesteś dumny?", "odpowiedz": "Wybierz projekt z kodem do pokazania (GitHub). Powiedz, jaki problem rozwiązywał, jaki stack, co było Twoim wkładem i trudnością, i co byś poprawił. Mów konkretnie."}
+{"id": "miekkie-107", "kategoria": "miekkie", "typ": "fiszka", "pytanie": "Jak odpowiedzieć na „Jak uczysz się nowych technologii?”", "odpowiedz": "Podaj swój sposób: dokumentacja, kursy, własny mini-projekt, czytanie cudzego kodu. Dodaj świeży przykład czegoś, czego się nauczyłeś. Rekruter szuka samodzielności i nawyku nauki."}
+{"id": "miekkie-108", "kategoria": "miekkie", "typ": "fiszka", "pytanie": "Co robisz, gdy utkniesz nad problemem, i kiedy prosisz o pomoc?", "odpowiedz": "Najpierw sam: czytasz błąd, dokumentację, szukasz, debugujesz (np. 30-60 min). Potem pytasz kolegę, opisując, co próbowałeś. Pokaż, że nie tkwisz godzinami ani nie pytasz od razu."}
+{"id": "miekkie-109", "kategoria": "miekkie", "typ": "fiszka", "pytanie": "Jak odpowiedzieć na pytanie o oczekiwania finansowe?", "odpowiedz": "Sprawdź widełki rynkowe i podaj zakres, nie jedną kwotę. Zaznacz: brutto czy netto, UoP czy B2B (stawki B2B podaje się netto + VAT, zwykle bez płatnego urlopu). Bądź otwarty na rozmowę."}
+{"id": "miekkie-110", "kategoria": "miekkie", "typ": "fiszka", "pytanie": "Jakie pytania warto zadać rekruterowi na końcu rozmowy?", "odpowiedz": "O zespół i stack, onboarding i mentoring, jak wygląda code review, proces rozwoju juniora i kolejne kroki rekrutacji. Unikaj pytań z oferty i tylko o urlop czy pieniądze."}
+{"id": "miekkie-201", "kategoria": "miekkie", "typ": "fiszka", "pytanie": "Jak opowiedzieć o Scrumie: sprint, daily, retro i role?", "odpowiedz": "Sprint to iteracja na 1–4 tygodnie, daily to 15 minut synchronizacji, retro to rozmowa o tym, co poprawić w pracy zespołu. Role: PO (priorytety), SM (proces), zespół. Dodaj, skąd to znasz."}
+{"id": "miekkie-202", "kategoria": "miekkie", "typ": "fiszka", "pytanie": "Kanban vs Scrum: jak odpowiedzieć?", "odpowiedz": "Scrum: stałe sprinty, role, planowanie. Kanban: ciągły przepływ, tablica i limity WIP, bez iteracji. Dodaj, że wybór zależy od zespołu; rekruter chce zrozumienia, nie dogmatu."}
+{"id": "miekkie-203", "kategoria": "miekkie", "typ": "fiszka", "pytanie": "Jak odpowiedzieć na „Jak szacujesz zadania?”", "odpowiedz": "Porównuję do podobnych zadań, dzielę na małe części, uwzględniam niepewność. Story points to względna miara złożoności, nie godzin. Szacunek to nie obietnica; doprecyzowuję go."}
+{"id": "miekkie-204", "kategoria": "miekkie", "typ": "fiszka", "pytanie": "Co powiedzieć na pytanie „Co zrobisz, gdy nie zdążysz z terminem?”", "odpowiedz": "Informuję jak najwcześniej, nie w dniu terminu. Podaję powód, nowy realny termin i opcje (zawężenie zakresu, pomoc). Pokaż odpowiedzialność i komunikację, a nie chowanie problemu."}
+{"id": "miekkie-205", "kategoria": "miekkie", "typ": "fiszka", "pytanie": "Jak zareagujesz na krytyczny feedback do swojego kodu w review?", "odpowiedz": "Nie bronię się emocjonalnie: dopytuję o powód, rozumiem argument, poprawiam. Jeśli się nie zgadzam, argumentuję merytorycznie. Rekruter chce otwartości i uczenia się."}
+{"id": "miekkie-206", "kategoria": "miekkie", "typ": "fiszka", "pytanie": "Jak odpowiedzieć na „Gdzie widzisz się za 2-3 lata?”", "odpowiedz": "Pokaż rozwój w kierunku tej roli: samodzielny developer, głębsza wiedza (backend, chmura), może mentoring młodszych. Bez „zostanę managerem” i „nie wiem”. Dopasuj do ścieżek w firmie."}
+{"id": "miekkie-207", "kategoria": "miekkie", "typ": "fiszka", "pytanie": "Jak odpowiedzieć na „Dlaczego IT?” (jako student)", "odpowiedz": "Konkretna historia: pierwszy projekt, który wciągnął, lubisz rozwiązywanie problemów i ciągłą naukę. Dodaj dowód (projekt, studia). Unikaj „bo dobre zarobki”."}
+{"id": "miekkie-208", "kategoria": "miekkie", "typ": "fiszka", "pytanie": "Jak w minutę opowiedzieć o pracy dyplomowej laikowi?", "odpowiedz": "Szablon: problem (po co), pomysł (analogia), efekt (co powstało). Praca: adaptacyjny dobór algorytmów kryptografii postkwantowej; opisz ją jako ochronę danych przed komputerami kwantowymi."}
+{"id": "miekkie-209", "kategoria": "miekkie", "typ": "fiszka", "pytanie": "Praca zdalna czy w biurze: jak odpowiedzieć?", "odpowiedz": "Szczerze, ale elastycznie: podaj preferencję i uzasadnienie, zaznacz, że działasz w obu trybach. Jako junior doceniasz kontakt z zespołem; zapytaj, jak to wygląda u nich."}
+{"id": "miekkie-210", "kategoria": "miekkie", "typ": "fiszka", "pytanie": "Co powiedzieć o sytuacji, gdy nie zgadzałeś się z decyzją techniczną?", "odpowiedz": "STAR: kontekst, twoje argumenty (dane, prototyp), jak zakończyła się dyskusja. Pokaż szacunek, gotowość do kompromisu i wykonania decyzji zespołu, nawet gdy nie wygrałeś."}
+{"id": "miekkie-211", "kategoria": "miekkie", "typ": "fiszka", "pytanie": "Jak odpowiedzieć na „Jak priorytetyzujesz wiele zadań?”", "odpowiedz": "Waga i pilność (np. macierz Eisenhowera), wpływ na biznes, zależności. Przy konflikcie priorytetów pytam lidera lub PO. Wspomnij, że komunikujesz, co przesuwasz."}
+{"id": "miekkie-212", "kategoria": "miekkie", "typ": "fiszka", "pytanie": "Co wiesz o naszym produkcie? Jak się przygotować?", "odpowiedz": "Sprawdź: co robi produkt i dla kogo, stack (oferta, blog techniczny, GitHub), klienci, konkurencja, newsy. Przygotuj 1-2 konkretne spostrzeżenia i pytania."}
+</script>
+
+<script>
+{
+const KAT = { python: 'Python', web: 'Web', http: 'HTTP', projektowanie: 'Projektowanie', git: 'Git', sql: 'SQL', algorytmy: 'Algorytmy',
+  docker: 'Docker', kubernetes: 'Kubernetes', linux: 'Linux', cicd: 'CI/CD', siec: 'Sieci', chmura: 'Chmura', bezpieczenstwo: 'Bezpieczeństwo', miekkie: 'Miękkie' };
+const TYP = { fiszka: 'fiszka', wybor: 'wybór' };
+const LS_POSTEP = 'fiszki.v1.postep', LS_WLASNE = 'fiszki.v1.wlasne';
+const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const $ = s => document.querySelector(s);
+const feed = $('#feed'), sheet = $('#sheet');
+
+function load(key, def) { try { return JSON.parse(localStorage.getItem(key)) ?? def; } catch { return def; } }
+function save(key, val) { try { localStorage.setItem(key, JSON.stringify(val)); } catch {} }
+
+let plik = [], postep = load(LS_POSTEP, {}), wlasne = load(LS_WLASNE, []);
+let filtr = 'all', kolejka = [], sesja = {};
+
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const fmt = s => esc(s).replace(/`([^`]+)`/g, '<code>$1</code>');
+const wszystkie = () => [...plik, ...wlasne];
+
+function parseJsonl(text) {
+  const out = [];
+  text.split('\n').forEach((line, n) => {
+    if (!line.trim()) return;
+    try { out.push(JSON.parse(line)); } catch { console.warn(`questions.jsonl, linia ${n + 1}: zły JSON`); }
+  });
+  return out;
+}
+
+function tasuj(a) {
+  for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+  return a;
+}
+
+function pytan(n) {
+  const m10 = n % 10, m100 = n % 100;
+  if (n === 1) return '1 pytanie wróci';
+  if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return `${n} pytania wrócą`;
+  return `${n} pytań wróci`;
+}
+
+/* ─── KARTY ─── */
+function naglowek(p) {
+  const powtorka = postep[p.id]?.zle ? '<span class="badge">powtórka</span>' : '';
+  return `<div class="eyebrow"><span>${esc(KAT[p.kategoria] ?? p.kategoria)} · ${TYP[p.typ] ?? ''}</span>${powtorka}</div>
+    <h2 class="q${p.pytanie.length > 90 ? ' long' : ''}">${fmt(p.pytanie)}</h2>`;
+}
+
+function kartaFiszka(p, i) {
+  return `<section class="card" data-i="${i}"><div class="inner">
+    ${naglowek(p)}
+    <div class="term answer">
+      <div class="term-bar"><i class="d r"></i><i class="d y"></i><i class="d g"></i><span>odpowiedz.txt</span></div>
+      <div class="term-body"><span class="pr">~ $</span> ${fmt(p.odpowiedz)}</div>
+      <button class="btn btn-fill reveal" type="button">Pokaż odpowiedź</button>
+    </div>
+    <div class="grade">
+      <button class="btn btn-outline" type="button" data-ocena="nie">Nie wiedziałem</button>
+      <button class="btn btn-fill" type="button" data-ocena="tak">Wiedziałem</button>
+    </div>
+  </div>${i === 0 ? '<div class="scroll-hint">przewiń</div>' : ''}</section>`;
+}
+
+function kartaWybor(p, i) {
+  const opcje = tasuj(p.opcje.map((t, j) => ({ t, ok: j === p.poprawna })));
+  return `<section class="card" data-i="${i}"><div class="inner">
+    ${naglowek(p)}
+    <div class="opts">${opcje.map((o, k) =>
+      `<button class="opt" type="button" data-ok="${o.ok ? 1 : 0}"><span class="key">${String.fromCharCode(65 + k)}</span><span>${fmt(o.t)}</span></button>`).join('')}</div>
+    <div class="expl"><span class="verdict"></span>${fmt(p.wyjasnienie)}</div>
+  </div>${i === 0 ? '<div class="scroll-hint">przewiń</div>' : ''}</section>`;
+}
+
+function kartaKoniec() {
+  if (!kolejka.length) return `<section class="card end"><div class="inner">
+    <h2 class="q">Pusto <em>tutaj.</em></h2>
+    <p class="muted">W tej kategorii nie ma jeszcze pytań. Dodaj pierwsze przyciskiem + u góry.</p>
+  </div></section>`;
+  return `<section class="card end"><div class="inner">
+    <div class="eyebrow"><span>podsumowanie</span></div>
+    <h2 class="q">Koniec <em>sesji.</em></h2>
+    <div class="stats">
+      <div class="stat"><div class="stat-val ok" id="sTak">0</div><div class="stat-label">wiedziałem</div></div>
+      <div class="stat"><div class="stat-val no" id="sNie">0</div><div class="stat-label">nie wiedziałem</div></div>
+    </div>
+    <p class="muted" id="sOpis"></p>
+    <button class="btn btn-fill" id="nowaSesja" type="button">Nowa sesja ↺</button>
+  </div></section>`;
+}
+
+/* ─── KOLEJKA ─── */
+function zbudujKolejke() {
+  const lista = wszystkie().filter(p => filtr === 'all' || p.kategoria === filtr);
+  kolejka = [...lista.filter(p => postep[p.id]?.zle), ...lista.filter(p => !postep[p.id]?.zle)];
+}
+
+function render() {
+  sesja = {};
+  feed.innerHTML = kolejka.map((p, i) => p.typ === 'wybor' ? kartaWybor(p, i) : kartaFiszka(p, i)).join('') + kartaKoniec();
+  feed.scrollTo({ top: 0 });
+  obserwuj(); licznik(0); podsumowanie();
+}
+
+function renderChips() {
+  const kolej = Object.keys(KAT), poz = k => kolej.includes(k) ? kolej.indexOf(k) : kolej.length;
+  const kats = [...new Set(wszystkie().map(p => p.kategoria))].sort((a, b) => poz(a) - poz(b));
+  $('#chips').innerHTML = [['all', 'Wszystkie'], ...kats.map(k => [k, KAT[k] ?? k])]
+    .map(([k, l]) => `<button class="chip${k === filtr ? ' on' : ''}" type="button" data-k="${esc(k)}">${esc(l)}</button>`).join('');
+}
+
+let obs;
+function obserwuj() {
+  obs?.disconnect();
+  obs = new IntersectionObserver(es => {
+    for (const e of es) if (e.isIntersecting) licznik(e.target.dataset.i !== undefined ? +e.target.dataset.i : kolejka.length);
+  }, { root: feed, threshold: .6 });
+  feed.querySelectorAll('.card').forEach(c => obs.observe(c));
+}
+
+function licznik(i) {
+  const n = kolejka.length, k = Math.min(i + 1, n);
+  $('#count').textContent = `${k} / ${n}`;
+  $('#barFill').style.width = n ? `${k / n * 100}%` : '0';
+}
+
+function podsumowanie() {
+  const opis = $('#sOpis'); if (!opis) return;
+  const v = Object.values(sesja), tak = v.filter(x => x === 'tak').length, nie = v.length - tak, zost = kolejka.length - v.length;
+  $('#sTak').textContent = tak; $('#sNie').textContent = nie;
+  opis.textContent = (nie ? `${pytan(nie)} na początek następnej sesji.` : v.length ? 'Wszystko na zielono.' : 'Jeszcze nic nie oceniłeś.')
+    + (zost && v.length ? ` Bez odpowiedzi: ${zost}.` : '');
+}
+
+function ocen(p, ok) {
+  sesja[p.id] = ok ? 'tak' : 'nie';
+  const s = postep[p.id] ?? { zle: false, n: 0 };
+  s.n++; s.zle = !ok;
+  postep[p.id] = s; save(LS_POSTEP, postep);
+  podsumowanie();
+}
+
+const dalej = card => card.nextElementSibling?.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth' });
+
+feed.addEventListener('click', e => {
+  if (e.target.closest('#nowaSesja')) { zbudujKolejke(); render(); return; }
+  const card = e.target.closest('.card[data-i]'); if (!card) return;
+  const p = kolejka[+card.dataset.i]; if (!p) return;
+
+  if (p.typ === 'wybor') {
+    const opt = e.target.closest('.opt');
+    if (!opt || card.classList.contains('done')) return;
+    const ok = opt.dataset.ok === '1';
+    card.classList.add('done');
+    card.querySelectorAll('.opt').forEach(o => {
+      if (o.dataset.ok === '1') { o.classList.add('correct'); o.querySelector('.key').textContent = '✓'; }
+      else if (o === opt) { o.classList.add('wrong'); o.querySelector('.key').textContent = '✕'; }
+      else o.classList.add('dim');
+    });
+    const v = card.querySelector('.verdict');
+    v.textContent = ok ? '✓ Dobrze' : '✕ Źle';
+    v.classList.add(ok ? 'ok' : 'no');
+    ocen(p, ok);
+    return;
+  }
+
+  const btn = e.target.closest('[data-ocena]');
+  if (btn) {
+    if (!card.classList.contains('revealed') || card.classList.contains('done')) return;
+    card.classList.add('done'); btn.classList.add('chosen');
+    ocen(p, btn.dataset.ocena === 'tak');
+    setTimeout(() => dalej(card), 550);
+    return;
+  }
+  card.classList.add('revealed');   // tapnięcie w dowolne miejsce karty odsłania odpowiedź
+});
+
+$('#chips').addEventListener('click', e => {
+  const c = e.target.closest('.chip'); if (!c) return;
+  filtr = c.dataset.k; renderChips(); zbudujKolejke(); render();
+});
+
+/* ─── FORMULARZ ─── */
+$('#fKat').innerHTML = Object.entries(KAT).map(([k, l]) => `<option value="${k}">${l}</option>`).join('');
+
+function liczniki() {
+  sheet.querySelectorAll('.cnt[data-for]').forEach(c => {
+    const t = document.getElementById(c.dataset.for);
+    c.textContent = `${t.value.length} / ${t.maxLength}`;
+    c.classList.toggle('over', t.value.length >= t.maxLength);
+  });
+}
+function otworz() {
+  $('#fIle').textContent = `Twoje pytania: ${wlasne.length}`;
+  $('#fErr').textContent = ''; $('#fEksport').hidden = true;
+  liczniki(); sheet.hidden = false; $('#backdrop').hidden = false; $('#fPyt').focus();
+}
+function zamknij() { sheet.hidden = true; $('#backdrop').hidden = true; }
+function pokazTyp() { const w = sheet.elements.typ.value === 'wybor'; $('#polaWybor').hidden = !w; $('#polaFiszka').hidden = w; }
+
+let toastT;
+function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 1800); }
+
+$('#addBtn').addEventListener('click', otworz);
+$('#fAnuluj').addEventListener('click', zamknij);
+$('#backdrop').addEventListener('click', zamknij);
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && !sheet.hidden) zamknij(); });
+sheet.addEventListener('input', liczniki);
+sheet.addEventListener('change', e => { if (e.target.name === 'typ') pokazTyp(); });
+
+sheet.addEventListener('submit', e => {
+  e.preventDefault();
+  const blad = msg => { $('#fErr').textContent = msg; };
+  const typ = sheet.elements.typ.value, pytanie = $('#fPyt').value.trim();
+  if (!pytanie) return blad('Wpisz pytanie.');
+  const p = { id: 'wlasne-' + Date.now().toString(36), kategoria: $('#fKat').value, typ, pytanie };
+  if (typ === 'fiszka') {
+    const odp = $('#fOdp').value.trim();
+    if (!odp) return blad('Wpisz odpowiedź.');
+    p.odpowiedz = odp;
+  } else {
+    const pola = [...sheet.querySelectorAll('.fOpc')], pop = +sheet.elements.pop.value;
+    if (!pola[pop].value.trim()) return blad('Pole oznaczone jako poprawne jest puste.');
+    const opcje = []; let poprawna = 0;
+    pola.forEach((inp, j) => { const t = inp.value.trim(); if (!t) return; if (j === pop) poprawna = opcje.length; opcje.push(t); });
+    if (opcje.length < 2) return blad('Podaj co najmniej dwie odpowiedzi.');
+    p.opcje = opcje; p.poprawna = poprawna;
+    const wyj = $('#fWyj').value.trim(); if (wyj) p.wyjasnienie = wyj;
+  }
+  wlasne.push(p); save(LS_WLASNE, wlasne);
+  sheet.reset(); pokazTyp(); zamknij();
+  renderChips(); zbudujKolejke(); render();
+  toast('Dodano pytanie');
+});
+
+$('#fKopiuj').addEventListener('click', async () => {
+  const txt = wlasne.map(p => JSON.stringify(p)).join('\n');
+  if (!txt) return toast('Nie masz jeszcze własnych pytań');
+  try { await navigator.clipboard.writeText(txt); toast('Skopiowano JSONL'); }
+  catch { const t = $('#fEksport'); t.value = txt; t.hidden = false; t.select(); toast('Zaznacz i skopiuj ręcznie'); }
+});
+
+/* ─── TŁO (jak na portfolio, lżejsze) ─── */
+{
+  const cv = $('#bg'), ctx = cv.getContext('2d');
+  let W, H, nodes = [];
+  const resize = () => { W = cv.width = innerWidth; H = cv.height = innerHeight; };
+  const mk = () => ({ x: Math.random() * W, y: Math.random() * H, r: 120 + Math.random() * 200,
+    dx: (Math.random() - .5) * .12, dy: (Math.random() - .5) * .09, a: .01 + Math.random() * .02, hue: Math.random() < .55 ? 213 : 250 });
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+    for (const n of nodes) {
+      const g = ctx.createRadialGradient(n.x, n.y, 0, n.x, n.y, n.r);
+      g.addColorStop(0, `hsla(${n.hue},75%,58%,${n.a})`); g.addColorStop(1, 'transparent');
+      ctx.beginPath(); ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2); ctx.fillStyle = g; ctx.fill();
+      n.x += n.dx; n.y += n.dy;
+      if (n.x < -n.r) n.x = W + n.r; if (n.x > W + n.r) n.x = -n.r;
+      if (n.y < -n.r) n.y = H + n.r; if (n.y > H + n.r) n.y = -n.r;
+    }
+    if (!reduced) requestAnimationFrame(draw);
+  }
+  addEventListener('resize', resize, { passive: true });
+  resize(); nodes = Array.from({ length: 12 }, mk); draw();
+}
+
+/* ─── START ─── */
+(async () => {
+  try {
+    const r = await fetch('questions.jsonl', { cache: 'no-store' });
+    if (!r.ok) throw new Error(r.status);
+    plik = parseJsonl(await r.text());
+  } catch {
+    plik = parseJsonl($('#przyklad').textContent);
+  }
+  renderChips(); zbudujKolejke(); render();
+})();
+}
+</script>
+</body>
+</html>

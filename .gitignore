@@ -1,0 +1,4 @@
+staging/
+__pycache__/
+.venv/
+*.pyc
